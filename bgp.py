@@ -11,303 +11,71 @@ BGP_ASN = 65000
 
 HOLD_TIME = 30
 
+
+
 class BgpSession():
 
     def __init__ (self, peer_ip):
         self.peer_ip = peer_ip
 
-        self.connect_retry_time = 5
-        self.hold_time = None
-        self.keepalive_time = None
-        self.state = "Idle"
-        self.logger = loguru.logger.bind(peer_ip=peer_ip, state=self.state)
+        self.event_queue = []
+        self.message_input_queue = []
 
         self.reader = None
         self.writer = None
 
-        self.connect_retry_timer = None
-        self.hold_timer = None
-        self.keepalive_timer = None
+        self.connect_retry_time = 5
+
+        self.state = "Idle"
+
+        self.logger = loguru.logger.bind(peer_ip=self.peer_ip, state=self.state)
+
+        asyncio.create_task(self.fsm())
 
     def change_state(self, state):
         assert state in {"Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established"}
-        self.logger.debug(f"State: {self.state} -> {state}")
+        self.logger.info(f"State: {self.state} -> {state}")
         self.state = state
         self.logger = loguru.logger.bind(peer_ip=self.peer_ip, state=self.state)
-        
-    async def event_manual_start(self, reset_connect_retry_counter = True):
-        """ Event 1:  ManualStart """
 
-        self.logger.info("Event 1: ManualStart")
+    async def decrease_connect_retry_timer(self):
+        """ Decrease connect_retry_timer every second if its value is greater than zero """
 
-        if self.state == "Idle":
-            # Initialize all BGP resources for the peer connection
-            pass
+        self.logger.debug(f"Starting decrease_connect_retry_timer() coroutine")
 
-            # Set ConnectRetryCounter to zero
-            self.connect_retry_counter = 0
-
-            # Change state to Connect
-            self.change_state("Connect")
-
-            # Initiate a TCP connection to the other BGP peer
-            self.task_open_connection = asyncio.create_task(self.open_connection())
-
-            # Starts the ConnectRetryTimer with the initial value
-            self.task_start_connect_retry_timer = asyncio.create_task(self.start_connect_retry_timer())
-
-    async def event_manual_stop(self):
-        """ Event 2: ManualStop """
-
-        self.logger.info("Event 2: ManualStop")
-
-        if self.state in {"Connect", "OpenSent", "OpenConfirm", "Established"}:
-
-            if self.state in {"OpenSent", "OpenConfirm", "Established"}:
-
-                # Send the NOTIFICATION with a Cease
-                self.logger.debug("Sending Notification message with a Cease")
-                message = bgp_message.Notification()
-                self.writer.write(message.write(error_code = 6))
-                await self.writer.drain()
-
-            if self.state == "Established":
-                # Delete all routes associated with this connection
-                pass
-
-            # Sets the ConnectRetryTimer to zero
-            self.connect_retry_timer = 0
-
-            # Sets the ConnectRetryCounter to zero
-            self.connect_retry_counter = 0
-
-            # Release all BGP resources
-            pass
-
-            # Drop the TCP connection
-            self.writer.close()
-            await self.writer.wait_closed()
-
-            # Changes  state to Idle
-            self.change_state("Idle")
-
-    async def event_connect_retry_timer_expires(self):
-        """ Event 9: ConnectRetryTimer_Expires """
-
-        self.logger.info("Event 9: ConnectRetryTimer_Expires")
-
-        if self.state == "Connect":
-
-            self.task_open_connection.cancel()
-
-            self.connect_retry_counter += 1
-            self.logger.debug(f"connect_retry_counter = {self.connect_retry_counter}")
-
-            # Initiate a TCP connection to the other BGP peer
-            self.task_open_connection = asyncio.create_task(self.open_connection())
-
-            # Starts the ConnectRetryTimer with the initial value
-            self.task_start_connect_retry_timer = asyncio.create_task(self.start_connect_retry_timer())
-
-    async def event_hold_timer_expires(self):
-        """ Event 10: HoldTimer_Expires """
-
-        self.logger.info("Event 10: HoldTimer_Expires")
-
-        if self.state == "OpenSent":
-            self.task_event_tcp_cr_acked.cancel()
-
-            # Restarting FSM
-            asyncio.create_task(self.event_manual_stop())
-            while self.state != "Idle":
-                await asyncio.sleep(1)
-            await asyncio.sleep(5)
-            asyncio.create_task(self.event_manual_start())
-
-        if self.state == "OpenConfirm":
-            #self.task_event_tcp_cr_acked.cancel()
-
-            # Restarting FSM
-            asyncio.create_task(self.event_manual_stop())
-            while self.state != "Idle":
-                await asyncio.sleep(1)
-            await asyncio.sleep(5)
-            asyncio.create_task(self.event_manual_start())
-
-        if self.state == "Established":
-            self.change_state("Idle")
+        while True:
             await asyncio.sleep(1)
-            # nedd to complete this
+            if self.connect_retry_timer:
+                self.connect_retry_timer -= 1
+                self.logger.debug(f"connect_retry_timer = {self.connect_retry_timer}")
+                if not self.connect_retry_timer:
+                    self.event_queue.append("Event 9: ConnectRetryTimer_Expires")
 
-    async def event_keepalive_timer_expires(self):
-        """ Event 11: KeepaliveTimer_Expires """
+    async def decrease_hold_timer(self):
+        """ Decrease hold_timer every second if its value is greater than zero """
 
-        self.logger.info("Event 11: KeepaliveTimer_Expires")
+        self.logger.debug(f"Starting decrease_hold_timer() coroutine")
 
-        asyncio.create_task(self.send_keepalive())
-        asyncio.create_task(self.start_keepalive_timer())
-
-    async def event_tcp_cr_acked(self):
-        """ Event 16: TCP_CR_Acked """
-
-        self.logger.info("Event 16: TCP_CR_Acked")
-        
-        if self.state == "Connect":
-
-            # Stops the connectretrytimer and set the connectretrytimer to zero 
-            self.task_start_connect_retry_timer.cancel()
-            self.connect_retry_timer = 0
-
-            # Completes bgp initialization
-            pass
-
-            # Sends an open message
-            self.logger.debug("Sending open message to peer")
-            message = bgp_message.Open()
-            self.writer.write(message.write(bgp_id=BGP_ID, asn=BGP_ASN, hold_time=HOLD_TIME))
-            await self.writer.drain()
-
-            # Change state to OpenSent
-            self.change_state("OpenSent")
-
-            # Set the holdtimer to a large value, holdtimer value of 4 minutes is suggested
-            #self.task_hold_timer = asyncio.create_task(self.start_hold_timer(240))
-            self.task_hold_timer = asyncio.create_task(self.start_hold_timer(10))
-
-            self.logger.debug("Waiting for open message from peer")
-
-            try:
-                header = bgp_message.Header()
-                header.read(await self.reader.readexactly(bgp_message.HEADER_SIZE))
-            
-            except asyncio.exceptions.IncompleteReadError:
-                # Need to handle this properly
-                self.logger.critical("IncompleteReadError received")
-                sys.exit()
-
-            if header.type == bgp_message.OPEN:
-                self.logger.debug("Open message from peer received")
-                message = bgp_message.Open()
-                message.read(await self.reader.readexactly(header.size - bgp_message.HEADER_SIZE))
-                self.change_state("OpenConfirm")
-                self.task_event_bgp_open = asyncio.create_task(self.event_bgp_open(message))
-
-            if header.type == bgp_message.NOTIFICATION:
-                message = bgp_message.Notification()
-                message.read(await self.reader.readexactly(header.size - bgp_message.HEADER_SIZE))
-                # Need to make this adhere to standard
-                self.writer.close()
-                await self.writer.wait_closed()
-                self.logger.critical("Notification message received")
-                sys.exit()
-
-    async def event_tcp_connection_confirmed(self):
-        """ Event 17: TcpConnectionConfirmed """
-
-        self.logger.info("Event 17: TcpConnectionConfirmed")
-
-    async def event_tcp_connection_fails(self):
-        """ Event 18: TcpConnectionFails """
-
-        self.logger.info("Event 18: TcpConnectionFails")
-
-        if self.state == "Connect":
-
-            self.task_start_connect_retry_timer.cancel()
-
-            self.connect_retry_counter += 1
-            self.logger.debug(f"connect_retry_counter = {self.connect_retry_counter}")
-
+        while True:
             await asyncio.sleep(1)
+            if self.hold_timer:
+                self.hold_timer -= 1
+                self.logger.debug(f"hold_timer = {self.hold_timer}")
+                if not self.hold_timer:
+                    self.event_queue.append("Event 10: HoldTimer_Expires")
 
-            # Initiate a TCP connection to the other BGP peer
-            self.task_open_connection = asyncio.create_task(self.open_connection())
+    async def decrease_keepalive_timer(self):
+        """ Decrease keepalive_timer every second if its value is greater than zero """
 
-            # Starts the ConnectRetryTimer with the initial value
-            self.connect_retry_timer = self.connect_retry_time
-            self.task_start_connect_retry_timer = asyncio.create_task(self.start_connect_retry_timer())
+        self.logger.debug(f"Starting decrease_keepalive_timer() coroutine")
 
-    async def event_bgp_open(self, open_message):
-        """ Event 19: BGPOpen """
-
-        self.logger.info("Event 19: BGPOpen")
-
-        if self.state == "OpenConfirm":
-            self.logger.debug("Sending keepalive to ack open")
-
-            message = bgp_message.Keepalive()
-            self.writer.write(message.write())
-            await self.writer.drain()
-
-            self.hold_time = min(HOLD_TIME, open_message.hold_time)
-            self.keepalive_time = self.hold_time // 3
-
-            self.connect_retry_timer = 0
-            
-            self.logger.debug("Waiting for OpenConfirm keepalive")
-
-            try:
-                header = bgp_message.Header()
-                header.read(await self.reader.readexactly(bgp_message.HEADER_SIZE))
-            
-            except asyncio.exceptions.IncompleteReadError:
-                # Need to handle this properly
-                self.logger.critical("IncompleteReadError received")
-                sys.exit()
-
-            if header.type == bgp_message.KEEPALIVE:
-                self.logger.debug("Received OpenConfirm keepalive")
-                self.change_state("Established")
-                self.task_hold_timer.cancel()
-                self.task_hold_timer = asyncio.create_task(self.start_hold_timer())
-                asyncio.create_task(self.start_keepalive_timer())
-                asyncio.create_task(self.maintain_session())
-
-            if header.type == bgp_message.NOTIFICATION:
-                messaage = bgp_message.Notification()
-                messaage.read(await self.reader.readexactly(header.size - bgp_message.HEADER_SIZE))
-                # Need to make this adhere to standard
-                self.writer.close()
-                await self.writer.wait_closed()
-                self.logger.critical("Notification message received")
-                sys.exit()
-
-
-
-    async def event_bgp_header_err(self):
-        """ Event 21: BGPHeaderErr """
-
-        self.logger.info("Event 21: BGPHeaderErr")
-
-    async def event_bgp_open_msg_err(self):
-        """ Event 22: BGPOpenMsgErr """
-
-        self.logger.info("Event 22: BGPOpenMsgErr")
-
-    async def event_notif_msg_ver_err(self):
-        """ Event 24: NotifMsgVerErr """
-
-        self.logger.info("Event 24: NotifMsgVerErr")
-
-    async def event_notif_msg(self):
-        """ Event 25: NotifMsg """
-
-        self.logger.info("Event 25: NotifMs")
-
-    async def event_keep_alive_msg(self):
-        """ Event 26: KeepAliveMsg """
-
-        self.logger.info("Event 26: KeepAliveMsg")
-
-    async def event_update_msg(self):
-        """ Event 27: UpdateMsg """
-
-        self.logger.info("Event 27: UpdateMsg")
-
-    async def event_update_msg_err(self):
-        """ Event 28: UpdateMsgErr """
-
-        self.logger.info("Event 28: UpdateMsgErr")
+        while True:
+            await asyncio.sleep(1)
+            if self.keepalive_timer:
+                self.keepalive_timer -= 1
+                self.logger.debug(f"keepalive_timer = {self.keepalive_timer}")
+                if not self.keepalive_timer:
+                    self.event_queue.append("Event 11: KeepaliveTimer_Expires")
 
     async def open_connection(self):
         """ Open TCP connection to the BGP peer """
@@ -315,109 +83,496 @@ class BgpSession():
         self.logger.debug(f"Opening connection to peer")
         try:
             self.reader, self.writer = await asyncio.open_connection(self.peer_ip, 179)
-            self.task_event_tcp_cr_acked = asyncio.create_task(self.event_tcp_cr_acked())
+            self.event_queue.append("Event 16: Tcp_CR_Acked")
 
         except OSError:
             self.logger.debug(f"TCP connection failed")
-            asyncio.create_task(self.event_tcp_connection_fails())
+            self.event_queue.append("Event 18: TcpConnectionFails")
 
-    async def send_keepalive(self):
+    async def close_connection(self):
+        """ Close TCP connection to the BGP peer """
+
+        self.logger.debug(f"Closing connection to peer")
+
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
+            self.reader = None
+            self.writer = None
+
+    #@connection_exception_handler
+    async def send_keepalive_message(self):
         """ Send Keepalive message """
-        self.logger.debug("Sending keepalive")
+
+        self.logger.debug("Sending keepalive message")
         message = bgp_message.Keepalive()
         self.writer.write(message.write())
         await self.writer.drain()
 
+    #@connection_exception_handler
+    async def send_notification_message(self, error_code, error_subcode=0, data=b""):
+        """ Send Notification message """
 
-    async def start_keepalive_timer(self):
-        """ Initialize keepalive timer and then decrease it every second """
+        self.logger.debug(f"Sending Notification message [{error_code}, {error_subcode}, {data}]")
+        message = bgp_message.Notification(error_code, error_subcode, data)
+        self.writer.write(message.write())
+        await self.writer.drain()
 
-        self.keepalive_timer = self.keepalive_time
-        
-        self.logger.debug(f"Starting keepalive_timer at {self.keepalive_time}")
+    #@connection_exception_handler
+    async def send_open_message(self, asn, bgp_id, hold_time):
+        """ Send Open message """
 
-        while self.state in {"OpenConfirm", "Established"}: # Not sure if i need OpenConfirm here
-            self.logger.debug(f"keepalive_timer = {self.keepalive_timer}")
-            await asyncio.sleep(1)
-            if self.keepalive_timer:
-                self.keepalive_timer -= 1
-                if not self.keepalive_timer:
-                    asyncio.create_task(self.event_keepalive_timer_expires())
+        self.logger.debug("Sending Open message")
+        message = bgp_message.Open(asn, bgp_id, hold_time)
+        self.writer.write(message.write())
+        await self.writer.drain()
+
+    async def message_input_loop(self):
+        """ Receive messages from the peer and add them to the input queue """
+
+        self.logger.debug("Starting message input loop")
+
+        while True:
+            data = await self.reader.read(4096)
+            self.logger.debug(f"Received {len(data)} bytes of data")
+
+            if len(data) == 0:
+                self.logger.error(f"Connection failed")
+                self.event_queue.append("Event 18: TcpConnectionFails")
+                break
+
+            while len(data) >= 19:
+                message = bgp_message.DecodeMessage(data)
+
+                if message.data_length_error:
+                    self.logger.warning(f"Received {message_data_length_received} bytes of data, expected at least {message.data_length_expected}")
+                    self.logger.error(f"Connection failed")
+                    self.event_queue.append("Event 18: TcpConnectionFails")
                     break
 
-    async def start_hold_timer(self, hold_time=None):
-        """ Initialize hold timer and then decrease it every second """
+                data = data[message.length:]
 
-        if hold_time is None:
+                if message.message_error_code == 1:
+                    asyncio.create_task(self.send_notification_message(message.message_error_code, message.message_error_subcode, message.message_error_data))
+                    continue
+
+                if message.type == bgp_message.OPEN:
+                    self.logger.debug("Received Open message")
+                    self.event_queue.append("Event 19: BGPOpen")
+
+                if message.type == bgp_message.UPDATE:
+                    self.logger.debug("Received Update message")
+                    pass
+
+                if message.type == bgp_message.NOTIFICATION:
+                    self.logger.debug("Received Notification message")
+                    if message.error_code == 2 and messsage.error_subcode == 1:
+                        self.event_queue.append("Event 24: NotifMsgVerErr")
+                    if message.error_code == 2 and messsage.error_subcode != 1:
+                        self.event_queue.append("Event 25: NotifMsg")
+
+                if message.type == bgp_message.KEEPALIVE:
+                    self.logger.debug("Received Keepalive message")
+                    self.event_queue.append("Event 26: KeepAliveMsg")
+
+                self.message_input_queue.append(message)
+
+            else:
+                await asyncio.sleep(1)
+
+    async def fsm_idle(self, event):
+        """ Finite State Machine - Idle state """
+
+        if event == "Event 1: ManualStart":
+            self.logger.info(event)
+
+            # Initialize all BGP resources for the peer connection
+            pass
+
+            # Sets ConnectRetryCounter to zero
+            self.connect_retry_counter = 0
+
+            # Starts the ConnectRetryTimer with the initial value
+            self.connect_retry_timer = self.connect_retry_time
+            self.task_decrease_connect_retry_timer = asyncio.create_task(self.decrease_connect_retry_timer())
+
+            # Initiate a TCP connection to the other BGP peer
+            self.task_open_connection = asyncio.create_task(self.open_connection())
+
+            # Change state to Connect
+            self.change_state("Connect")
+
+    async def fsm_connect(self, event):
+        """ Finite State Machine - Connect state """
+
+        if event == "Event 2: ManualStop":
+            self.logger.info(event)
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Releases all BGP resources
+            pass
+
+            # Set ConnectRetryCounter to zero
+            self.connect_retry_counter = 0
+
+            # Stop the ConnectRetryTimer and set ConnectRetryTimer to zero
+            self.logger.debug("Canceling decrease_connect_retry_timer() coroutine")
+            self.task_decrease_connect_retry_timer.cancel()
+            self.connect_retry_timer = 0
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 9: ConnectRetryTimer_Expires":
+            self.logger.info(event)
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Restart the ConnectRetryTimer
+            self.connect_retry_timer = self.connect_retry_time
+
+            # Initiate a TCP connection to the other BGP peer
+            self.task_open_connection = asyncio.create_task(self.open_connection())
+
+            # Continue to listen for a connection that may be initiated by the remote BGP peer
+            pass
+
+            # Stay in the Connect state
+            self.change_state("Connect")
+
+        if event == "Event 16: Tcp_CR_Acked":
+            self.logger.info(event)
+
+            # Stop the ConnectRetryTimer and set the ConnectRetryTimer to zero
+            self.logger.debug("Canceling decrease_connect_retry_timer() coroutine")
+            self.task_decrease_connect_retry_timer.cancel()
+            self.connect_retry_timer = 0
+
+            # Complete BGP initialization
+            self.task_message_input_loop = asyncio.create_task(self.message_input_loop())
+
+            # Send an open message to the peer
+            await self.send_open_message(BGP_ASN, BGP_ID, HOLD_TIME)
+
+            # Set the holdtimer to a large value, holdtimer value of 4 minutes is suggested
+            self.hold_timer = 240
+            self.decrease_task_hold_timer = asyncio.create_task(self.decrease_hold_timer())
+
+            # Changes state to OpenSent
+            self.change_state("OpenSent")
+
+        if event == "Event 18: TcpConnectionFails":
+            self.logger.info(event)
+
+            # Stop the ConnectRetryTimer
+            self.logger.debug("Canceling decrease_connect_retry_timer() coroutine")
+            self.task_decrease_connect_retry_timer.cancel()
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Release all BGP resouces
+            pass
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+    async def fsm_active(self, event):
+        """ Finite State Machine - Active state """
+
+        pass
+
+    async def fsm_opensent(self, event):
+        """ Finite State Machine - OpenSent state """
+
+        if event == "Event 2: ManualStop":
+            self.logger.info(event)
+
+            # Send the NOTIFICATION with a Cease
+            await self.send_notification_message(6)
+
+            # Set the ConnectRetryTimer to zero
+            pass
+
+            # Releases all BGP resources
+            self.task_message_input_loop.cancel()
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Set ConnectRetryCounter to zero
+            self.connect_retry_counter = 0
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 10: HoldTimer_Expires":
+            self.logger.info(event)
+
+            # Send a NOTIFICATION message with the error code Hold Timer Expired
+            await self.send_notification_message(4)
+
+            # Set the ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Release all BGP resources
+            self.task_message_input_loop.cancel()
+
+            # Drop the TCP connection
+            self.close_connection()
+
+            # Increment ConnectRetryCounter
+            self.connect_retry_counter += 1
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 18: TcpConnectionFails":
+            self.logger.info(event)
+
+            # Close the TCP connection
+            await self.close_connection()
+
+            # Restart the ConnectRetryTimer
+            self.connect_retry_timer = self.connect_retry_time
+
+            # Continue to listen for a connection that may be initialized by the remote BGP peer
+
+            # Change state to Active
+            self.change_state("Active")
+
+        if event == "Event 19: BGPOpen":
+            self.logger.info(event)
+
+            message = self.message_input_queue.pop(0)
+
+            # Set the BGP ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Send a KeepAlive message
+            await self.send_keepalive_message()
+
+            # Set the HoldTimer according to the negotiated value
+            self.hold_time = min(HOLD_TIME, message.hold_time)
             self.hold_timer = self.hold_time
-        else:
-            self.hold_timer = hold_time
+            
+            # Set a KeepAliveTimer
+            self.keepalive_time = self.hold_time // 3
+            self.keepalive_timer = self.keepalive_time
+            self.task_decrease_keepalive_timer = asyncio.create_task(self.decrease_keepalive_timer())
 
-        self.logger.debug(f"Starting hold_timer at {hold_time}")
+            # Change state to OpenConfirm
+            self.change_state("OpenConfirm")
 
-        while self.state in {"OpenSent", "OpenConfirm", "Established"}:
-            self.logger.debug(f"hold_timer = {self.hold_timer}")
+        if event == "Event 21: BGPHeaderErr":
+            self.logger.info(event)
+
+            ### Need to implement ###
+            pass
+
+        if event == "Event 22: BGPOpenMsgErr":
+            self.logger.info(event)
+
+            ### Need to implement ###
+            pass
+
+    async def fsm_openconfirm(self, event):
+        """ Finite State Machine - OpenConfirm state """
+
+        if event == "Event 2: ManualStop":
+            self.logger.info(event)
+
+            # Send the NOTIFICATION with a Cease
+            await self.send_notification_message(6)
+
+            # Releases all BGP resources
+            self.task_message_input_loop.cancel()
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Set ConnectRetryCounter to zero
+            self.connect_retry_counter = 0
+
+            # Set the ConnectRetryTimer to zero
+            pass
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 10: HoldTimer_Expires":
+            self.logger.info(event)
+
+            # Send a NOTIFICATION message with the error code Hold Timer Expired
+            await self.send_notification_message(4)
+
+            # Set the ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Release all BGP resources
+            self.task_message_input_loop.cancel()
+
+            # Drop the TCP connection
+            self.close_connection()
+
+            # Increment ConnectRetryCounter
+            self.connect_retry_counter += 1
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 11: KeepaliveTimer_Expires":
+            self.logger.info(event)
+
+            # Send KEEPALIVE message
+            await self.send_keepalive_message()
+
+            # Restart the KeepaliveTimer
+            self.keepalive_timer = self.keepalive_time
+
+            # Remain in OpenConfirm state
+            pass
+
+        if event == "Event 18: TcpConnectionFails":
+            self.logger.info(event)
+
+            # Set the ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Release all BGP resouces
+            self.task_message_input_loop.cancel()
+            
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Increment the ConnectRetryCounter by 1
+            self.connect_retry_counter += 1
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 26: KeepAliveMsg":
+            self.logger.info(event)
+
+            # Restart the HoldTimer
+            self.hold_timer = self.hold_time
+
+            # Change state to Established
+            self.change_state("Established")
+
+    async def fsm_established(self, event):
+        """ Finite State Machine - Established state """
+
+        if event == "Event 2: ManualStop":
+            self.logger.info(event)
+
+            # Send the NOTIFICATION with a Cease
+            await self.send_notification_message(6)
+
+            # Set ConnectRetryCounter to zero
+            self.connect_retry_counter = 0
+
+            # Delete all routes associated with this connection
+            pass
+
+            # Releases all BGP resources
+            self.task_message_input_loop.cancel()
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Set the ConnectRetryTimer to zero
+            self.connect_retry_counter = 0
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 10: HoldTimer_Expires":
+            self.logger.info(event)
+
+            # Send a NOTIFICATION message with the error code Hold Timer Expired
+            await self.send_notification_message(4)
+
+            # Set the ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Release all BGP resources
+            self.task_message_input_loop.cancel()
+
+            # Drop the TCP connection
+            self.close_connection()
+
+            # Increment ConnectRetryCounter
+            self.connect_retry_counter += 1
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event == "Event 11: KeepaliveTimer_Expires":
+            self.logger.info(event)
+            
+            # Send KEEPALIVE message
+            await self.send_keepalive_message()
+
+            # Restart KeepaliveTimer
+            self.keepalive_timer = self.keepalive_time
+
+        if event == "Event 26: KeepAliveMsg":
+            self.logger.info(event)
+            
+            # Restart the HoldTimer
+            self.hold_timer = self.hold_time
+
+            # Remain in Established state
+            pass
+
+
+
+    async def fsm(self):
+        """ Finite State Machine loop """
+
+        while True:
+            if self.event_queue:
+                event = self.event_queue.pop(0)
+
+                if self.state == "Idle":
+                    await self.fsm_idle(event)
+                
+                if self.state == "Connect":
+                    await self.fsm_connect(event)
+
+                if self.state == "Active":
+                    await self.fsm_active(event)
+
+                if self.state == "OpenSent":
+                    await self.fsm_opensent(event)
+
+                if self.state == "OpenConfirm":
+                    await self.fsm_openconfirm(event)
+
+                if self.state == "Established":
+                    await self.fsm_established(event)
+
             await asyncio.sleep(1)
-            if self.hold_timer:
-                self.hold_timer -= 1
-                if not self.hold_timer:
-                    asyncio.create_task(self.event_hold_timer_expires())
-                    break
-    
-    async def start_connect_retry_timer(self):
-        """ Decrease connect retry timer every second """
 
-        self.connect_retry_timer = self.connect_retry_time
-
-        self.logger.debug(f"Starting connect_retry_timer at {self.connect_retry_time}")
-
-        while self.state == "Connect":
-            self.logger.debug(f"connect_retry_timer = {self.connect_retry_timer}")
-            await asyncio.sleep(1)
-            if self.connect_retry_timer:
-                self.connect_retry_timer -= 1
-                if not self.connect_retry_timer:
-                    asyncio.create_task(self.event_connect_retry_timer_expires())
-                    break
-
-    async def maintain_session(self):
-        """ Receive communication from BGP peer and react to it approprietely """
-
-        while self.state == "Established":
-            header = bgp_message.Header()
-
-            try:
-                header.read(await self.reader.readexactly(bgp_message.HEADER_SIZE))
-
-                if header.type == bgp_message.UPDATE:
-                    self.logger.debug("Received update")
-                    messaage = bgp_message.Update()
-                    messaage.read(await self.reader.readexactly(header.size - bgp_message.HEADER_SIZE))
-
-                if header.type == bgp_message.NOTIFICATION:
-                    self.logger.debug("Received notification")
-                    messaage = bgp_message.Notification()
-                    messaage.read(await self.reader.readexactly(header.size - bgp_message.HEADER_SIZE))
-
-                if header.type == bgp_message.KEEPALIVE:
-                    self.logger.debug("Received keepalive")
-                    self.hold_timer = self.hold_time
-
-            except asyncio.exceptions.IncompleteReadError:
-                # Need to handle this properly
-                self.logger.critical("IncompleteReadError received")
-                sys.exit()
 
 
 async def main():
     loguru.logger.remove(0)
     loguru.logger.add(sys.stdout, colorize=True, level="DEBUG", format=f"<green>{{time:YY-MM-DD HH:mm:ss}}</green> <level>| {{level:7}} "
-            + f"|</level> <level>{{extra[peer_ip]:15}} | <normal><cyan>{{function:30}}</cyan></normal> | {{extra[state]:11}} | {{message}}</level>")
+            + f"|</level> <level>{{extra[peer_ip]:15}} | <normal><cyan>{{function:33}}</cyan></normal> | {{extra[state]:11}} | {{message}}</level>")
 
     session = BgpSession("192.168.9.202")
     #session = BgpSession("192.168.9.201")
     #session = BgpSession("222.222.222.222")
-    asyncio.create_task(session.event_manual_start())
+
+    session.event_queue.append("Event 1: ManualStart")
+    #await asyncio.sleep(2)
+    #session.event_queue.append("Event 2: ManualStop")
+
     while True:
         await asyncio.sleep(1)
 
