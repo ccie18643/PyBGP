@@ -30,7 +30,8 @@ class BgpSession():
     from bgp_fsm_openconfirm import fsm_openconfirm
     from bgp_fsm_established import fsm_established
 
-    def __init__ (self, local_id, local_asn, local_hold_time, peer_ip, peer_asn):
+    def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn):
+        """ Class constructor """
 
         self.local_id = local_id
         self.local_asn = local_asn
@@ -49,11 +50,15 @@ class BgpSession():
 
         self.connect_retry_time = 5
 
+    async def asyncio_init(self):
+        """ Start all coroutines and make sure they run before returning """
+
         asyncio.create_task(self.fsm())
         asyncio.create_task(self.decrease_hold_timer())
         asyncio.create_task(self.decrease_connect_retry_timer())
         asyncio.create_task(self.decrease_keepalive_timer())
-        self.task_message_input_loop = asyncio.create_task(self.message_input_loop())
+        asyncio.create_task(self.message_input_loop())
+        await asyncio.sleep(1)
 
     def enqueue_event(self, event):
         self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[ENQ]</cyan> {event.name}")

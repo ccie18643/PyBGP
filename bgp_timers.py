@@ -10,7 +10,8 @@ async def decrease_connect_retry_timer(self):
 
     self.logger.debug(f"Starting decrease_connect_retry_timer() coroutine")
 
-    self.connect_retry_timer = 0
+    if not hasattr(self, "connect_retry_timer"):
+        self.connect_retry_timer = 0
 
     while True:
         await asyncio.sleep(1)
@@ -26,7 +27,8 @@ async def decrease_hold_timer(self):
 
     self.logger.debug(f"Starting decrease_hold_timer() coroutine")
 
-    self.hold_timer = 0
+    if not hasattr(self, "hold_timer"):
+        self.hold_timer = 0
 
     while True:
         await asyncio.sleep(1)
@@ -42,7 +44,8 @@ async def decrease_keepalive_timer(self):
 
     self.logger.debug(f"Starting decrease_keepalive_timer() coroutine")
 
-    self.keepalive_timer = 0
+    if not hasattr(self, "keepalive_timer"):
+        self.keepalive_timer = 0
 
     while True:
         await asyncio.sleep(1)
