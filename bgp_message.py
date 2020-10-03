@@ -41,7 +41,7 @@ INVALID_NETWORK_FIELD = 10
 MALFORMED_AS_PATH = 11
 
 class DecodeMessage():
-    def __init__(self, data, asn=0, bgp_id="0.0.0.0"):
+    def __init__(self, data, local_id="0.0.0.0", peer_asn=0):
 
         self.data_length_error = False
         self.data_length_expected = 19
@@ -94,20 +94,20 @@ class DecodeMessage():
                 self.message_error_data = struct.pack("!H", self.length)
                 return
 
-            self.version, self.asn, self.hold_time, self.bgp_id, self.opt_len = struct.unpack("!BHHIB", data[19:29])
-            self.bgp_id = socket.inet_ntoa(struct.pack('!L', self.bgp_id))
+            self.version, self.asn, self.hold_time, self.id, self.opt_len = struct.unpack("!BHHIB", data[19:29])
+            self.id = socket.inet_ntoa(struct.pack('!L', self.id))
             opt_param = data[29:self.length]
 
             if self.version != 4:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = UNSUPPORTED_VERSION_NUMBER
 
-            if self.asn != asn:
+            if self.asn != peer_asn:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = BAD_PEER_AS
 
             ### Need to check for valid unicast IP
-            if self.bgp_id == bgp_id:
+            if self.id == local_id:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = BAD_BGP_IDENTIFIER
 
@@ -137,13 +137,13 @@ class DecodeMessage():
 
 
 class Open:
-    def __init__(self, asn, bgp_id, hold_time=180, opt=b"", version=4):
+    def __init__(self, local_id, local_asn, local_hold_time=180, opt=b"", version=4):
         self.len = 19 + 10 + len(opt)
         self.type = OPEN
         self.version = version
-        self.asn = asn
-        self.hold_time = hold_time
-        self.bgp_id = struct.unpack("!L", socket.inet_aton(bgp_id))[0]
+        self.asn = local_asn
+        self.hold_time = local_hold_time
+        self.bgp_id = struct.unpack("!L", socket.inet_aton(local_id))[0]
         self.opt_len = len(opt)
         self.opt = opt
 
