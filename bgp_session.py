@@ -11,6 +11,25 @@ from bgp_event import BgpEvent
 
 class BgpSession():
 
+    from bgp_timers import decrease_connect_retry_timer
+    from bgp_timers import decrease_hold_timer
+    from bgp_timers import decrease_keepalive_timer
+
+    from bgp_network_io import open_connection
+    from bgp_network_io import close_connection
+    from bgp_network_io import send_keepalive_message
+    from bgp_network_io import send_notification_message
+    from bgp_network_io import send_open_message
+    from bgp_network_io import send_update_message
+    from bgp_network_io import message_input_loop
+
+    from bgp_fsm_idle import fsm_idle
+    from bgp_fsm_connect import fsm_connect
+    from bgp_fsm_active import fsm_active
+    from bgp_fsm_opensent import fsm_opensent
+    from bgp_fsm_openconfirm import fsm_openconfirm
+    from bgp_fsm_established import fsm_established
+
     def __init__ (self, local_id, local_asn, local_hold_time, peer_ip, peer_asn):
 
         self.local_id = local_id
@@ -51,25 +70,6 @@ class BgpSession():
         self.state = state
         self.logger = loguru.logger.bind(peer_ip=self.peer_ip, state=self.state)
 
-    from bgp_timers import decrease_connect_retry_timer
-    from bgp_timers import decrease_hold_timer
-    from bgp_timers import decrease_keepalive_timer
-
-    from bgp_network_io import open_connection
-    from bgp_network_io import close_connection
-    from bgp_network_io import send_keepalive_message
-    from bgp_network_io import send_notification_message
-    from bgp_network_io import send_open_message
-    from bgp_network_io import send_update_message
-    from bgp_network_io import message_input_loop
-
-    from bgp_fsm_idle import fsm_idle
-    from bgp_fsm_connect import fsm_connect
-    from bgp_fsm_active import fsm_active
-    from bgp_fsm_opensent import fsm_opensent
-    from bgp_fsm_openconfirm import fsm_openconfirm
-    from bgp_fsm_established import fsm_established
-
     async def fsm(self):
         """ Finite State Machine loop """
 
@@ -96,5 +96,4 @@ class BgpSession():
                     await self.fsm_established(event)
 
             await asyncio.sleep(1)
-
 

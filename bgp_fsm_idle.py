@@ -10,7 +10,7 @@ from bgp_event import BgpEvent
 async def fsm_idle(self, event):
     """ Finite State Machine - Idle state """
 
-    if event.name in {"Event 1: ManualStart", "Event 2: AutomaticStart"}:
+    if event.name in {"Event 1: ManualStart", "Event 3: AutomaticStart"}:
         self.logger.info(event.name)
 
         # Initialize all BGP resources for the peer connection

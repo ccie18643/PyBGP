@@ -9,7 +9,7 @@ from bgp_event import BgpEvent
 async def open_connection(self):
     """ Open TCP connection to the BGP peer """
 
-    self.logger.opt(depth=1).debug(f"Opening connection to peer")
+    self.logger.opt(depth=0).debug(f"Opening connection to peer")
     try:
         self.reader, self.writer = await asyncio.open_connection(self.peer_ip, 179)
         self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked"))

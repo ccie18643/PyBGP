@@ -22,7 +22,7 @@ async def main():
     while True:
         await asyncio.sleep(2)
         if session.state == "Idle":
-            session.event_queue.append(BgpEvent("Event 2: AutomaticStart"))
+            session.event_queue.append(BgpEvent("Event 3: AutomaticStart"))
 
 
 if __name__ == "__main__":
