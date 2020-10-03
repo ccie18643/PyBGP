@@ -129,7 +129,8 @@ class DecodeMessage():
                 self.message_error_data = struct.pack("!H", self.length)
                 return
 
-            self.error_code, self.error_subcode = struct.unpack("!BB", data[:2])
+            self.error_code, self.error_subcode = struct.unpack("!BB", data[19:21])
+            self.error_data = data[21:self.length]
 
         if self.type == KEEPALIVE:
             pass

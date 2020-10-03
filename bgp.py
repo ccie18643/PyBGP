@@ -47,6 +47,15 @@ class BgpSession():
         self.task_decrease_keepalive_timer = asyncio.create_task(self.decrease_keepalive_timer())
         self.task_message_input_loop = asyncio.create_task(self.message_input_loop())
 
+    def enqueue_event(self, event):
+        self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[ENQ]</cyan> {event.name}")
+        self.event_queue.append(event)
+
+    def dequeue_event(self):
+        event = self.event_queue.pop(0)
+        self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[DEQ]</cyan> {event.name}")
+        return event
+
     def change_state(self, state):
         assert state in {"Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established"}
         self.logger.info(f"State: {self.state} -> {state}")
@@ -64,7 +73,7 @@ class BgpSession():
                 self.logger.debug(f"connect_retry_timer = {self.connect_retry_timer}")
                 self.connect_retry_timer -= 1
                 if not self.connect_retry_timer:
-                    self.event_queue.append(BgpEvent("Event 9: ConnectRetryTimer_Expires"))
+                    self.enqueue_event(BgpEvent("Event 9: ConnectRetryTimer_Expires"))
 
     async def decrease_hold_timer(self):
         """ Decrease hold_timer every second if its value is greater than zero """
@@ -77,7 +86,7 @@ class BgpSession():
                 self.logger.debug(f"hold_timer = {self.hold_timer}")
                 self.hold_timer -= 1
                 if not self.hold_timer:
-                    self.event_queue.append(BgpEvent("Event 10: HoldTimer_Expires"))
+                    self.enqueue_event(BgpEvent("Event 10: HoldTimer_Expires"))
 
     async def decrease_keepalive_timer(self):
         """ Decrease keepalive_timer every second if its value is greater than zero """
@@ -90,7 +99,7 @@ class BgpSession():
                 self.logger.debug(f"keepalive_timer = {self.keepalive_timer}")
                 self.keepalive_timer -= 1
                 if not self.keepalive_timer:
-                    self.event_queue.append(BgpEvent("Event 11: KeepaliveTimer_Expires"))
+                    self.enqueue_event(BgpEvent("Event 11: KeepaliveTimer_Expires"))
 
     async def open_connection(self):
         """ Open TCP connection to the BGP peer """
@@ -98,11 +107,10 @@ class BgpSession():
         self.logger.debug(f"Opening connection to peer")
         try:
             self.reader, self.writer = await asyncio.open_connection(self.peer_ip, 179)
-            self.event_queue.append(BgpEvent("Event 16: Tcp_CR_Acked"))
+            self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked"))
 
         except OSError:
-            self.logger.debug(f"TCP connection failed")
-            self.event_queue.append(BgpEvent("Event 18: TcpConnectionFails"))
+            self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
 
     async def close_connection(self):
         """ Close TCP connection to the BGP peer """
@@ -119,7 +127,7 @@ class BgpSession():
     async def send_keepalive_message(self):
         """ Send Keepalive message """
 
-        self.logger.opt(ansi=True).info("<magenta>[>>>]</magenta> Sending keepalive message")
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Keepalive message")
         message = bgp_message.Keepalive()
         self.writer.write(message.write())
         await self.writer.drain()
@@ -128,7 +136,7 @@ class BgpSession():
     async def send_notification_message(self, error_code, error_subcode=0, data=b""):
         """ Send Notification message """
 
-        self.logger.opt(ansi=True).info(f"<magenta>[>>>]</magenta> Sending Notification message [{error_code}, {error_subcode}, {data}]")
+        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX]</magenta> Notification message ({error_code}, {error_subcode})")
         message = bgp_message.Notification(error_code, error_subcode, data)
         self.writer.write(message.write())
         await self.writer.drain()
@@ -137,7 +145,7 @@ class BgpSession():
     async def send_open_message(self, asn, bgp_id, hold_time):
         """ Send Open message """
 
-        self.logger.opt(ansi=True).info("<magenta>[>>>]</magenta> Sending Open message")
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Open message")
         message = bgp_message.Open(asn, bgp_id, hold_time)
         self.writer.write(message.write())
         await self.writer.drain()
@@ -157,8 +165,8 @@ class BgpSession():
             self.logger.debug(f"Received {len(data)} bytes of data")
 
             if len(data) == 0:
-                self.logger.error(f"Connection failed")
-                self.event_queue.append(BgpEvent("Event 18: TcpConnectionFails"))
+                self.logger.debug("Event 18: TcpConnectionFails")
+                self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                 await asyncio.sleep(1)
                 continue
             
@@ -168,42 +176,44 @@ class BgpSession():
                 if message.data_length_error:
                     self.logger.warning(f"Received {message_data_length_received} bytes of data, expected at least {message.data_length_expected}")
                     self.logger.error(f"Connection failed")
-                    self.event_queue.append(BgpEvent("Event 18: TcpConnectionFails"))
+                    self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                     await asyncio.sleep(1)
                     break
 
                 data = data[message.length:]
 
                 if message.message_error_code == bgp_message.MESSAGE_HEADER_ERROR:
-                    self.event_queue.append(BgpEvent("Event 21: BGPHeaderErr", message))
+                    self.enqueue_event(BgpEvent("Event 21: BGPHeaderErr", message))
                     break
 
                 if message.message_error_code == bgp_message.OPEN_MESSAGE_ERROR:
-                    self.event_queue.append(BgpEvent("Event 22: BGPOpenMsgErr", message))
+                    self.enqueue_event(BgpEvent("Event 22: BGPOpenMsgErr", message))
                     break
 
                 if message.type == bgp_message.OPEN:
-                    self.logger.opt(ansi=True).info("<green>[<<<]</green> Received Open message")
-                    self.event_queue.append(BgpEvent("Event 19: BGPOpen", message))
+                    self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Open message")
+                    self.enqueue_event(BgpEvent("Event 19: BGPOpen", message))
 
                 if message.type == bgp_message.UPDATE:
-                    self.logger.opt(ansi=True).info("<green>[<<<]</green> Received Update message")
+                    self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Update message")
                     ### Requires proper handler here
 
                 if message.type == bgp_message.NOTIFICATION:
-                    self.logger.opt(ansi=True).info("<green>[<<<]</green> Received Notification message")
+                    self.logger.opt(ansi=True).info(f"<magenta>[RX]</magenta> Notification message ({message.error_code}, {message.error_subcode})")
 
                     ### Need to add handler for notifcations about bad header
 
-                    if message.error_code == bgp_mesage.OPEN_MESSAGE_ERROR and messsage.error_subcode == bgp_message.UNSUPPORTED_VERSION_NUMBER:
-                        self.event_queue.append(BgpEvent("Event 24: NotifMsgVerErr"))
+                    if message.error_code == bgp_message.OPEN_MESSAGE_ERROR and message.error_subcode == bgp_message.UNSUPPORTED_VERSION_NUMBER:
+                        self.enqueue_event(BgpEvent("Event 24: NotifMsgVerErr"))
 
-                    if message.error_code == bgp.message.OPEN_MESSAGE_ERROR and messsage.error_subcode != bgp_message.UNSUPPORTED_VERSION_NUMBER:
-                        self.event_queue.append(BgpEvent("Event 25: NotifMsg"))
+                    if message.error_code == bgp_message.OPEN_MESSAGE_ERROR and message.error_subcode != bgp_message.UNSUPPORTED_VERSION_NUMBER:
+                        self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
 
                 if message.type == bgp_message.KEEPALIVE:
-                    self.logger.opt(ansi=True).info("<green>[<<<]</green> Received Keepalive message")
-                    self.event_queue.append(BgpEvent("Event 26: KeepAliveMsg"))
+                    self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Keepalive message")
+                    self.enqueue_event(BgpEvent("Event 26: KeepAliveMsg"))
+
+                await asyncio.sleep(1)
 
             else:
                 await asyncio.sleep(1)
@@ -347,6 +357,9 @@ class BgpSession():
             # Set the ConnectRetryTimer to zero
             self.connect_retry_timer = 0
 
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
+
             # Releases all BGP resources
             pass
 
@@ -428,6 +441,9 @@ class BgpSession():
             # Set the BGP ConnectRetryTimer to zero
             self.connect_retry_timer = 0
 
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
+
             # Release all BGP resources
             pass
 
@@ -446,6 +462,9 @@ class BgpSession():
             # Set the ConnectRetryTimer to zero
             self.connect_retry_timer = 0
 
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
+
             # Release all bgp resources
             pass
 
@@ -458,14 +477,17 @@ class BgpSession():
         if event.name == "Event 25: NotifMsg":
             self.logger.info(event.name)
 
-            # Set the ConnectRetryTimer to zero
+            # Set HoldTimer to zero (not required by RFC4271)
             self.connect_retry_timer = 0
+
+            # Stop HoldTimer
+            self.hold_timer = 0
 
             # Release all bgp resources
             pass
 
             # Drop the TCP connection
-            self.close_connection()
+            await self.close_connection()
 
             # Increment ConnectRetryCounter
             self.connect_retry_counter += 1
@@ -631,7 +653,7 @@ class BgpSession():
 
         while True:
             if self.event_queue:
-                event = self.event_queue.pop(0)
+                event = self.dequeue_event()
 
                 if self.state == "Idle":
                     await self.fsm_idle(event)
