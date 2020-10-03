@@ -104,7 +104,7 @@ class BgpSession():
     async def open_connection(self):
         """ Open TCP connection to the BGP peer """
 
-        self.logger.debug(f"Opening connection to peer")
+        self.logger.opt(depth=1).debug(f"Opening connection to peer")
         try:
             self.reader, self.writer = await asyncio.open_connection(self.peer_ip, 179)
             self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked"))
@@ -115,7 +115,7 @@ class BgpSession():
     async def close_connection(self):
         """ Close TCP connection to the BGP peer """
 
-        self.logger.debug(f"Closing connection to peer")
+        self.logger.opt(depth=1).debug(f"Closing connection to peer")
 
         if self.writer:
             self.writer.close()
@@ -165,7 +165,6 @@ class BgpSession():
             self.logger.debug(f"Received {len(data)} bytes of data")
 
             if len(data) == 0:
-                self.logger.debug("Event 18: TcpConnectionFails")
                 self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                 await asyncio.sleep(1)
                 continue
@@ -175,7 +174,6 @@ class BgpSession():
 
                 if message.data_length_error:
                     self.logger.warning(f"Received {message_data_length_received} bytes of data, expected at least {message.data_length_expected}")
-                    self.logger.error(f"Connection failed")
                     self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                     await asyncio.sleep(1)
                     break
@@ -201,12 +199,26 @@ class BgpSession():
                 if message.type == bgp_message.NOTIFICATION:
                     self.logger.opt(ansi=True).info(f"<magenta>[RX]</magenta> Notification message ({message.error_code}, {message.error_subcode})")
 
-                    ### Need to add handler for notifcations about bad header
+
+                    if message.error_code == bgp_message.MESSAGE_HEADER_ERROR:
+                        self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
 
                     if message.error_code == bgp_message.OPEN_MESSAGE_ERROR and message.error_subcode == bgp_message.UNSUPPORTED_VERSION_NUMBER:
                         self.enqueue_event(BgpEvent("Event 24: NotifMsgVerErr"))
 
                     if message.error_code == bgp_message.OPEN_MESSAGE_ERROR and message.error_subcode != bgp_message.UNSUPPORTED_VERSION_NUMBER:
+                        self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
+
+                    if message.error_code == bgp_message.UPDATE_MESSAGE_ERROR:
+                        self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
+
+                    if message.error_code == bgp_message.HOLD_TIMER_EXPIRED:
+                        self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
+
+                    if message.error_code == bgp_message.FINITE_STATE_MACHINE_ERROR:
+                        self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
+
+                    if message.error_code == bgp_message.CEASE:
                         self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
 
                 if message.type == bgp_message.KEEPALIVE:
@@ -343,7 +355,44 @@ class BgpSession():
     async def fsm_active(self, event):
         """ Finite State Machine - Active state """
 
-        pass
+        if event.name == "Event 2: ManualStop":
+            self.logger.info(event.name)
+
+            # If the DelayOpenTimer is running and the
+            # SendNOTIFICATIONwithoutOPEN session attribute is set, the
+            # local system sends a NOTIFICATION with a Cease
+
+            # Releases all BGP resources including stopping the DelayOpenTimer
+            pass
+
+            # Drop the TCP connection
+            await self.close_connection()
+            self.task_open_connection.cancel()
+
+            # Set ConnectRetryCounter to zero
+            self.connect_retry_counter = 0
+
+            # Stop the ConnectRetryTimer and set ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event.name == "Event 9: ConnectRetryTimer_Expires":
+            self.logger.info(event.name)
+
+            # Restart the ConnectRetryTimer
+            self.connect_retry_timer = self.connect_retry_time
+
+            # Initiate a TCP connection to the other BGP peer
+            self.task_open_connection = asyncio.create_task(self.open_connection())
+            await asyncio.sleep(0.001)
+
+            # Continue to listen for a connection that may be initiated by the remote BGP peer
+            pass
+
+            # Change state to  Connect
+            self.change_state("Connect")
 
     async def fsm_opensent(self, event):
         """ Finite State Machine - OpenSent state """
@@ -401,6 +450,9 @@ class BgpSession():
 
             # Restart the ConnectRetryTimer
             self.connect_retry_timer = self.connect_retry_time
+
+            # Set the HoldTimer to zero (not required by RFC4271)0
+            self.hold_timer = 0
 
             # Continue to listen for a connection that may be initialized by the remote BGP peer
             pass
@@ -474,27 +526,31 @@ class BgpSession():
             # Change state to Idle
             self.change_state("Idle")
 
-        if event.name == "Event 25: NotifMsg":
+        if event.name in {"Event 9: ConnectRetryTimer_Expires", "Event 11: KeepaliveTimer_Expires", "Event 12: DelayOpenTimer_Expires",
+                          "Event 13: IdleHoldTimer_Expires", "Event 20: BGPOpen with DelayOpenTimer running", "Event 25: NotifMsg",
+                          "Event 26: KeepAliveMsg", "Event 27: UpdateMsg", "Event 28: UpdateMsgErr"}:
             self.logger.info(event.name)
 
-            # Set HoldTimer to zero (not required by RFC4271)
+            # Send the NOTIFICATION with the Error Code Finite State Machine Error
+            await self.send_notification_message(bgp_message.FINITE_STATE_MACHINE_ERROR)
+
+            # Set ConnecRetryTimer to zro
             self.connect_retry_timer = 0
 
-            # Stop HoldTimer
+            # Set HoldTimer to zero (not required by RFC4271)
             self.hold_timer = 0
 
-            # Release all bgp resources
+            # Release all BGP resources
             pass
 
-            # Drop the TCP connection
+            # Drop TCP connection
             await self.close_connection()
 
-            # Increment ConnectRetryCounter
+            # Increment the ConnectRetryCounter by 1
             self.connect_retry_counter += 1
 
-            # Change state to Idle
+            # Chhange state to Idle
             self.change_state("Idle")
-
 
     async def fsm_openconfirm(self, event):
         """ Finite State Machine - OpenConfirm state """
@@ -524,7 +580,7 @@ class BgpSession():
             self.logger.info(event.name)
 
             # Send a NOTIFICATION message with the error code Hold Timer Expired
-            await self.send_notification_message(4)
+            await self.send_notification_message(HOLD_TIMER_EXPIRED)
 
             # Set the ConnectRetryTimer to zero
             self.connect_retry_timer = 0
@@ -553,7 +609,7 @@ class BgpSession():
             # Remain in OpenConfirm state
             pass
 
-        if event.name == "Event 18: TcpConnectionFails":
+        if event.name in {"Event 18: TcpConnectionFails", "Event 25: NotifMsg"}:
             self.logger.info(event.name)
 
             # Set the ConnectRetryTimer to zero
@@ -571,6 +627,55 @@ class BgpSession():
             # Change state to Idle
             self.change_state("Idle")
 
+        if event.name == "Event 19: BGPOpen":
+            self.logger.info(event.name)
+
+            ### Colision detection needs to happen here ###
+
+        if event.name in {"Event 21: BGPHeaderErr", "Event 22: BGPOpenMsgErr"}:
+            self.logger.info(event.name)
+
+            message = event.message
+
+            # Send a NOTIFICATION message with the appropriate error code
+            await self.send_notification_message(message.message_error_code, message.message_error_subcode, message.message_error_data)
+
+            # Set the BGP ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
+
+            # Release all BGP resources
+            pass
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Increment ConnectRetryCounter
+            self.connect_retry_counter += 1
+
+            # Change state to Idle
+            self.change_state("Idle")
+
+        if event.name == "Event 24: NotifMsgVerErr":
+            self.logger.info(event.name)
+
+            # Set the ConnectRetryTimer to zero
+            self.connect_retry_timer = 0
+
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
+
+            # Release all bgp resources
+            pass
+
+            # Drop the TCP connection
+            await self.close_connection()
+
+            # Change state to Idle
+            self.change_state("Idle")
+
         if event.name == "Event 26: KeepAliveMsg":
             self.logger.info(event.name)
 
@@ -579,6 +684,31 @@ class BgpSession():
 
             # Change state to Established
             self.change_state("Established")
+
+        if event.name in {"Event 9: ConnectRetryTimer_Expires", "Event 12: DelayOpenTimer_Expires", "Event 13: IdleHoldTimer_Expires",
+                          "Event 20: BGPOpen with DelayOpenTimer running", "Event 27: UpdateMsg", "Event 28: UpdateMsgErr"}:
+            self.logger.info(event.name)
+
+            # Send the NOTIFICATION with the Error Code Finite State Machine Error
+            await self.send_notification_message("FINITE_STATE_MACHINE_ERROR")
+
+            # Set ConnecRetryTimer to zro
+            self.connect_retry_timer = 0
+
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
+
+            # Release all BGP resources
+            pass
+
+            # Drop TCP connection
+            self.close_connection()
+
+            # Increment the ConnectRetryCounter by 1
+            connect_retry_counter += 1
+
+            # Chhange state to Idle
+            self.switch_state("Idle")
 
     async def fsm_established(self, event):
         """ Finite State Machine - Established state """
@@ -591,6 +721,9 @@ class BgpSession():
 
             # Set ConnectRetryCounter to zero
             self.connect_retry_counter = 0
+
+            # Set HoldTimer to zero (not required by RFC4271)
+            self.hold_timer = 0
 
             # Delete all routes associated with this connection
             pass
