@@ -46,6 +46,27 @@ class BgpSession():
         self.writer = None
 
         self.state = "Idle"
+        self.connect_retry_counter = 0
+        self.connect_retry_timer = 0
+        self.connect_retry_time = 5
+        self.hold_timer = 0
+        self.hold_time = 0
+        self.keepalive_timer = 0
+        self.keepalive_time = 0
+
+        self.accept_connections_unconfigured_peers = False
+        self.allow_automatic_start = True
+        self.allow_automatic_stop = True
+        self.collision_detect_established_state = False
+        self.damp_peer_oscillations = False
+        self.delay_open = False
+        self.delay_open_time = 0
+        self.delay_open_timer = 0
+        self.idle_hold_time = 0
+        self.idle_hold_timer = 0
+        self.passive_tcp_establishment = True
+        self.send_notification_without_open = False
+        self.track_tcp_state = False
 
         self.logger = loguru.logger.bind(peer_ip=self.peer_ip, state=self.state)
 

@@ -41,13 +41,14 @@ async def fsm_active(self, event):
         # Restart the ConnectRetryTimer
         self.connect_retry_timer = self.connect_retry_time
 
-        # Initiate a TCP connection to the other BGP peer
-        self.task_open_connection = asyncio.create_task(self.open_connection())
-        await asyncio.sleep(0.001)
-
         # Continue to listen for a connection that may be initiated by the remote BGP peer
         pass
 
-        # Change state to  Connect
-        self.change_state("Connect")
+        if not self.passive_tcp_establishment:
+            # Initiate a TCP connection to the other BGP peer
+            self.task_open_connection = asyncio.create_task(self.open_connection())
+            await asyncio.sleep(0.001)
+
+            # Change state to  Connect
+            self.change_state("Connect")
 

@@ -14,12 +14,14 @@ async def bgp_session_coroutine(local_id, local_asn, local_hold_time, peer_ip, p
 
     session = BgpSession(local_id, local_asn, local_hold_time, peer_ip, peer_asn)
     await session.asyncio_init()
-    session.event_queue.append(BgpEvent("Event 1: ManualStart"))
+    #session.event_queue.append(BgpEvent("Event 1: ManualStart"))
+    session.event_queue.append(BgpEvent("Event 4: ManualStart_with_PassiveTcpEstablishment"))
 
     while True:
         await asyncio.sleep(5)
         if session.state == "Idle":
-            session.event_queue.append(BgpEvent("Event 3: AutomaticStart"))
+            #session.event_queue.append(BgpEvent("Event 3: AutomaticStart"))
+            session.event_queue.append(BgpEvent("Event 5: AutomaticStart_with_PassiveTcpEstablishment"))
 
 
 async def main():
