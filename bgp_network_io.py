@@ -12,9 +12,11 @@ async def open_connection(self):
     self.logger.opt(depth=0).debug(f"Opening connection to peer")
     try:
         self.reader, self.writer = await asyncio.open_connection(self.peer_ip, 179)
+        self.connection_active = True
         self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked"))
 
     except OSError:
+        self.connection_active = False
         self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
 
 
@@ -26,6 +28,7 @@ async def close_connection(self):
     if self.writer:
         self.writer.close()
         await self.writer.wait_closed()
+        self.connection_active = False
         self.reader = None
         self.writer = None
 
@@ -33,28 +36,70 @@ async def close_connection(self):
 async def send_keepalive_message(self):
     """ Send Keepalive message """
 
-    self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Keepalive message")
-    message = bgp_message.Keepalive()
-    self.writer.write(message.write())
-    await self.writer.drain()
+    if self.connection_active:
+        message = bgp_message.Keepalive()
+       
+        try:
+            self.writer.write(message.write())
+            await self.writer.drain()
+
+        except OSError:
+            self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Keepalive message")
+            self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
+            self.connection_active = False
+            await asyncio.sleep(1)
+            return
+
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Keepalive message")
+
+    else:
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Keepalive message")
 
 
 async def send_notification_message(self, error_code, error_subcode=0, data=b""):
     """ Send Notification message """
 
-    self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX]</magenta> Notification message ({error_code}, {error_subcode})")
-    message = bgp_message.Notification(error_code, error_subcode, data)
-    self.writer.write(message.write())
-    await self.writer.drain()
+    if self.connection_active:
+        message = bgp_message.Notification(error_code, error_subcode, data)
+
+        try:
+            self.writer.write(message.write())
+            await self.writer.drain()
+
+        except OSError:
+            self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</magenta> Notification message ({error_code}, {error_subcode})")
+            self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
+            self.connection_active = False
+            await asyncio.sleep(1)
+            return
+    
+        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX]</magenta> Notification message ({error_code}, {error_subcode})")
+
+    else:
+        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</magenta> Notification message ({error_code}, {error_subcode})")
 
 
 async def send_open_message(self):
     """ Send Open message """
 
-    self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Open message")
-    message = bgp_message.Open(local_id=self.local_id, local_asn=self.local_asn, local_hold_time=self.local_hold_time)
-    self.writer.write(message.write())
-    await self.writer.drain()
+    if self.connection_active:
+        message = bgp_message.Open(local_id=self.local_id, local_asn=self.local_asn, local_hold_time=self.local_hold_time)
+
+        try:
+            self.writer.write(message.write())
+            await self.writer.drain()
+
+        except OSError:
+            self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Open message")
+            self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
+            self.connection_active = False
+            await asyncio.sleep(1)
+            return
+
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Open message")
+
+    else:
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Open message")
 
 
 async def send_update_message(self):
@@ -71,7 +116,7 @@ async def message_input_loop(self):
 
     while True:
 
-        if self.reader is None:
+        if self.connection_active is False:
             await asyncio.sleep(1)
             continue
 
@@ -80,6 +125,7 @@ async def message_input_loop(self):
 
         if len(data) == 0:
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
+            self.connection_active = False
             await asyncio.sleep(1)
             continue
             
@@ -88,6 +134,7 @@ async def message_input_loop(self):
 
             if message.data_length_error:
                 self.logger.warning(f"Received {message_data_length_received} bytes of data, expected at least {message.data_length_expected}")
+                self.connection_active = False
                 self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                 await asyncio.sleep(1)
                 break

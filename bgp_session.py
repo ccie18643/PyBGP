@@ -41,6 +41,7 @@ class BgpSession():
 
         self.event_queue = []
 
+        self.connection_active = False
         self.reader = None
         self.writer = None
 
