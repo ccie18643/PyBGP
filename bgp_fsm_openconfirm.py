@@ -29,9 +29,6 @@ async def fsm_openconfirm(self, event):
         # Set the ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -53,9 +50,6 @@ async def fsm_openconfirm(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -71,14 +65,6 @@ async def fsm_openconfirm(self, event):
         # Remain in OpenConfirm state
         pass
 
-    if event.name in {"Event 16: Tcp_CR_Acked", "Event 17: TcpConnectionConfirmed"}:
-        self.logger.info(event.name)
-
-        # Track the second connection
-        self.second_reader = event.reader
-        self.second_writer = event.writer
-        self.second_connection_active = True
-
     if event.name in {"Event 18: TcpConnectionFails", "Event 25: NotifMsg"}:
         self.logger.info(event.name)
 
@@ -93,9 +79,6 @@ async def fsm_openconfirm(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")
@@ -128,9 +111,6 @@ async def fsm_openconfirm(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -148,9 +128,6 @@ async def fsm_openconfirm(self, event):
 
         # Drop the TCP connection
         await self.close_connection()
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")
@@ -185,9 +162,6 @@ async def fsm_openconfirm(self, event):
 
         # Increment the ConnectRetryCounter by 1
         connect_retry_counter += 1
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Chhange state to Idle
         self.switch_state("Idle")

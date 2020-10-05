@@ -9,56 +9,37 @@ from bgp_event import BgpEvent
 from bgp_session import BgpSession
 
 
-INBOUND_LISTENER_REGISTER = {}
+BGP_LISTENERS = {}
 
-async def connection_broker(reader, writer):
+
+async def bgp_broker(reader, writer):
     """ Evaluate incoming connection and send to BGP session if valid peer """
 
     peer = writer.get_extra_info("peername")
-    session = INBOUND_LISTENER_REGISTER.get(peer[0], None)
+    passive_fsm = BGP_LISTENERS.pop(peer[0], None)
 
-    if session:
-        session.enqueue_event(BgpEvent("Event 17: TcpConnectionConfirmed", reader=reader, writer=writer))
+    if passive_fsm:
+        passive_fsm.enqueue_event(BgpEvent("Event 17: TcpConnectionConfirmed", reader=reader, writer=writer, peer_ip=peer[0], peer_port=peer[1]))
 
     else:
         writer.close()
         await writer.wait_closed()
 
 
-async def start_server():
-    """ Start listening for incomming connections """
+async def start_bgp_broker():
+    """ Start listening for incomming BGP connections on port 179"""
 
-    #loguru.logger.opt(depth=0).debug(f"Starting to listen on port 179/TCP")
-
-    server = await asyncio.start_server(connection_broker, "0.0.0.0", 179)
-
-
-async def bgp_session_coroutine(local_id, local_asn, local_hold_time, peer_ip, peer_asn):
-    """ Coroutine for the BGP session """
-
-    session = BgpSession(local_id, local_asn, local_hold_time, peer_ip, peer_asn, INBOUND_LISTENER_REGISTER)
-    await session.asyncio_init()
-    session.enqueue_event(BgpEvent("Event 1: ManualStart"))
-    #session.enqueue_event(BgpEvent("Event 4: ManualStart_with_PassiveTcpEstablishment"))
-
-    while True:
-        await asyncio.sleep(5)
-        if session.state == "Idle":
-            session.enqueue_event(BgpEvent("Event 3: AutomaticStart"))
-            #session.enqueue_event(BgpEvent("Event 5: AutomaticStart_with_PassiveTcpEstablishment"))
+    await asyncio.start_server(bgp_broker, "0.0.0.0", 179)
 
 
 async def main():
     loguru.logger.remove(0)
     loguru.logger.add(sys.stdout, colorize=True, level="DEBUG", format=f"<green>{{time:YY-MM-DD HH:mm:ss}}</green> <level>| {{level:7}} "
-            + f"|</level> <level>{{extra[peer_ip]:15}} | <normal><cyan>{{function:33}}</cyan></normal> | {{extra[state]:11}} | {{message}}</level>")
+            + f"|</level> <level>{{extra[peer]:21}} | <normal><cyan>{{function:33}}</cyan></normal> | {{extra[state]:11}} | {{message}}</level>")
 
-    await start_server()
+    await start_bgp_broker()
 
-    asyncio.create_task(bgp_session_coroutine("192.168.9.201", 65000, 180, "192.168.9.202", 65000))
-    
-    #asyncio.create_task(bgp_session_coroutine("192.168.9.201", 65000, 180, "192.168.9.203", 65000))
-    #asyncio.create_task(bgp_session_coroutine("192.168.9.201", 65000, 180, "192.168.9.204", 65000))
+    BgpSession("192.168.9.201", 65000, 180, "192.168.9.202", 65000, bgp_listeners=BGP_LISTENERS, active=True, passive=True)
 
 
     while True:

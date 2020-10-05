@@ -32,9 +32,6 @@ async def fsm_opensent(self, event):
         # Set ConnectRetryCounter to zero
         self.connect_retry_counter = 0
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -56,19 +53,8 @@ async def fsm_opensent(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
-
-    if event.name in {"Event 16: Tcp_CR_Acked", "Event 17: TcpConnectionConfirmed"}:
-        self.logger.info(event.name)
-
-        # Track the second connection
-        self.second_reader = event.reader
-        self.second_writer = event.writer
-        self.second_connection_active = True
 
     if event.name == "Event 18: TcpConnectionFails":
         self.logger.info(event.name)
@@ -133,9 +119,6 @@ async def fsm_opensent(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -153,9 +136,6 @@ async def fsm_opensent(self, event):
 
         # Drop the TCP connection
         await self.close_connection()
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")
@@ -182,9 +162,6 @@ async def fsm_opensent(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Chhange state to Idle
         self.change_state("Idle")

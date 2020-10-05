@@ -33,9 +33,6 @@ async def fsm_active(self, event):
         # Stop the ConnectRetryTimer and set ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -57,12 +54,17 @@ async def fsm_active(self, event):
             self.change_state("Connect")
 
     if event.name in {"Event 16: Tcp_CR_Acked", "Event 17: TcpConnectionConfirmed"}:
-        self.logger.info(event.name)
 
         # Take an ownership of the connection
         self.reader = event.reader
         self.writer = event.writer
-        self.connection_active = True
+        self.peer_ip = event.peer_ip
+        self.peer_port = event.peer_port
+        self.tcp_connection_established = True
+
+        self.logger = loguru.logger.bind(peer=f"{self.peer_ip}:{self.peer_port}", state=self.state)
+
+        self.logger.info(event.name)
 
         # Stop the ConnectRetryTimer and set the ConnectRetryTimer to zero
         self.connect_retry_timer = 0
@@ -75,10 +77,6 @@ async def fsm_active(self, event):
 
         # Set the holdtimer to a large value, holdtimer value of 4 minutes is suggested
         self.hold_timer = 240
-
-        ##### ??? #####
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Changes state to OpenSent
         self.change_state("OpenSent")
@@ -97,9 +95,6 @@ async def fsm_active(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")
@@ -129,9 +124,6 @@ async def fsm_active(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
-
         # Change state to Idle
         self.change_state("Idle")
 
@@ -152,9 +144,6 @@ async def fsm_active(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")
@@ -178,9 +167,6 @@ async def fsm_active(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
-
-        # Stop to listen for a connection that may be initiated by the remote BGP peer
-        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")

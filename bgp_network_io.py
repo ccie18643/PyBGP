@@ -14,10 +14,10 @@ async def open_connection(self):
     self.logger.opt(depth=0).debug(f"Opening connection to peer")
     try:
         reader, writer = await asyncio.open_connection(self.peer_ip, 179)
-        self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked", reader=reader, writer=writer))
+        self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked", reader=reader, writer=writer, peer_ip=self.peer_ip, peer_port = 179))
 
     except OSError:
-        self.connection_active = False
+        self.tcp_connection_established = False
         self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
 
 
@@ -29,7 +29,7 @@ async def close_connection(self):
     if self.writer:
         self.writer.close()
         await self.writer.wait_closed()
-        self.connection_active = False
+        self.tcp_connection_established = False
         self.reader = None
         self.writer = None
 
@@ -37,7 +37,7 @@ async def close_connection(self):
 async def send_keepalive_message(self):
     """ Send Keepalive message """
 
-    if self.connection_active:
+    if self.tcp_connection_established:
         message = bgp_message.Keepalive()
        
         try:
@@ -47,7 +47,7 @@ async def send_keepalive_message(self):
         except OSError:
             self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Keepalive message")
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
-            self.connection_active = False
+            self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
 
@@ -60,7 +60,7 @@ async def send_keepalive_message(self):
 async def send_notification_message(self, error_code, error_subcode=0, data=b""):
     """ Send Notification message """
 
-    if self.connection_active:
+    if self.tcp_connection_established:
         message = bgp_message.Notification(error_code, error_subcode, data)
 
         try:
@@ -70,7 +70,7 @@ async def send_notification_message(self, error_code, error_subcode=0, data=b"")
         except OSError:
             self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</magenta> Notification message ({error_code}, {error_subcode})")
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
-            self.connection_active = False
+            self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
     
@@ -83,7 +83,7 @@ async def send_notification_message(self, error_code, error_subcode=0, data=b"")
 async def send_open_message(self):
     """ Send Open message """
 
-    if self.connection_active:
+    if self.tcp_connection_established:
         message = bgp_message.Open(local_id=self.local_id, local_asn=self.local_asn, local_hold_time=self.local_hold_time)
 
         try:
@@ -93,7 +93,7 @@ async def send_open_message(self):
         except OSError:
             self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Open message")
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
-            self.connection_active = False
+            self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
 
@@ -117,7 +117,7 @@ async def message_input_loop(self):
 
     while True:
 
-        if self.connection_active is False:
+        if self.tcp_connection_established is False:
             await asyncio.sleep(1)
             continue
 
@@ -126,7 +126,7 @@ async def message_input_loop(self):
 
         if len(data) == 0:
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
-            self.connection_active = False
+            self.tcp_connection_established = False
             await asyncio.sleep(1)
             continue
             
@@ -135,7 +135,7 @@ async def message_input_loop(self):
 
             if message.data_length_error:
                 self.logger.warning(f"Received {message_data_length_received} bytes of data, expected at least {message.data_length_expected}")
-                self.connection_active = False
+                self.tcp_connection_established = False
                 self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                 await asyncio.sleep(1)
                 break
