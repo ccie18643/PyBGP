@@ -28,6 +28,9 @@ async def fsm_idle(self, event):
         self.task_open_connection = asyncio.create_task(self.open_connection())
         await asyncio.sleep(0.001)
 
+        # Listen for a connection that may be initiated by the remote BGP peer
+        self.start_server()
+
         # Change state to Connect
         self.change_state("Connect")
 
@@ -47,6 +50,9 @@ async def fsm_idle(self, event):
 
         # Starts the ConnectRetryTimer with the initial value
         self.connect_retry_timer = self.connect_retry_time
+
+        # Listen for a connection that may be initiated by the remote BGP peer
+        self.start_server()
 
         # Change state to Active
         self.change_state("Active")

@@ -30,7 +30,7 @@ class BgpSession():
     from bgp_fsm_openconfirm import fsm_openconfirm
     from bgp_fsm_established import fsm_established
 
-    def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn):
+    def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn, inbound_listener_register):
         """ Class constructor """
 
         self.local_id = local_id
@@ -38,6 +38,7 @@ class BgpSession():
         self.local_hold_time = local_hold_time
         self.peer_ip = peer_ip
         self.peer_asn = peer_asn
+        self.inbound_listener_register = inbound_listener_register
 
         self.event_queue = []
 
@@ -96,6 +97,12 @@ class BgpSession():
         self.logger.info(f"State: {self.state} -> {state}")
         self.state = state
         self.logger = loguru.logger.bind(peer_ip=self.peer_ip, state=self.state)
+
+    def start_server(self):
+        self.inbound_listener_register[self.peer_ip] = self
+
+    def stop_server(self):
+        self.inbound_listener_register.pop(self.peer_ip, None)
 
     async def fsm(self):
         """ Finite State Machine loop """

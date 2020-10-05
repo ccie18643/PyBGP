@@ -28,6 +28,9 @@ async def fsm_connect(self, event):
         # Stop the ConnectRetryTimer and set ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -56,6 +59,11 @@ async def fsm_connect(self, event):
     if event.name in {"Event 16: Tcp_CR_Acked", "Event 17: TcpConnectionConfirmed"}:
         self.logger.info(event.name)
 
+        # Take an ownership of the connection
+        self.reader = event.reader
+        self.writer = event.writer
+        self.connection_active = True
+
         # Stop the ConnectRetryTimer and set the ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
@@ -67,6 +75,10 @@ async def fsm_connect(self, event):
 
         # Set the holdtimer to a large value, holdtimer value of 4 minutes is suggested
         self.hold_timer = 240
+
+        ##### ??? #####
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
 
         # Changes state to OpenSent
         self.change_state("OpenSent")
@@ -82,6 +94,64 @@ async def fsm_connect(self, event):
 
         # Release all BGP resouces
         pass
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
+        # Change state to Idle
+        self.change_state("Idle")
+
+    if event.name in {"Event 21: BGPHeaderErr", "Event 22: BGPOpenMsgErr"}:
+        self.logger.info(event.name)
+
+        message = event.message
+
+        # If the SendNOTIFICATIONwithoutOPEN attribute is set to TRUE, then the local system
+        # sends a NOTIFICATION message with the appropriate error code
+        if self.send_notification_without_open:
+            await self.send_notification_message(message.message_error_code, message.message_error_subcode, message.message_error_data)
+
+        # Set the ConnectRetryTimer to zero
+        self.connect_retry_timer = 0
+
+        # Release all BGP resources
+        pass
+
+        # Set HoldTimer to zero (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Drop the TCP connection
+        await self.close_connection()
+
+        # Increment ConnectRetryCounter
+        self.connect_retry_counter += 1
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
+        # Change state to Idle
+        self.change_state("Idle")
+
+    if event.name == "Event 24: NotifMsgVerErr":
+        self.logger.info(event.name)
+
+        # Set the ConnectRetryTimer to zero
+        self.connect_retry_timer = 0
+
+        # Set HoldTimer to zero (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Release all bgp resources
+        pass
+
+        # Drop the TCP connection
+        await self.close_connection()
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")
@@ -105,6 +175,9 @@ async def fsm_connect(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
 
         # Change state to Idle
         self.change_state("Idle")

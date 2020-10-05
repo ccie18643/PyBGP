@@ -35,6 +35,9 @@ async def fsm_established(self, event):
         # Set the ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -56,6 +59,9 @@ async def fsm_established(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -68,6 +74,38 @@ async def fsm_established(self, event):
         # Restart KeepaliveTimer
         self.keepalive_timer = self.keepalive_time
 
+    if event.name in {"Event 16: Tcp_CR_Acked", "Event 17: TcpConnectionConfirmed"}:
+        self.logger.info(event.name)
+
+        # Track the second connection
+        self.second_reader = event.reader
+        self.second_writer = event.writer
+        self.second_connection_active = True
+
+    if event.name in {"Event 18: TcpConnectionFails", "Event 24: NotifMsgVerErr", "Event 25: NotifMsg"}:
+        self.logger.info(event.name)
+
+        # Set the ConnectRetryTimer to zero
+        self.connect_retry_timer = 0
+
+        # Delete all routes associated with this connection
+        pass
+
+        # Release all BGP resouces
+        pass
+
+        # Drop the TCP connection
+        await self.close_connection()
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
+        # Change state to Idle
+        self.change_state("Idle")
+
     if event.name == "Event 26: KeepAliveMsg":
         self.logger.info(event.name)
             
@@ -76,4 +114,70 @@ async def fsm_established(self, event):
 
         # Remain in Established state
         pass
+
+    if event.name == "Event 27: UpdateMsg":
+        self.logger.info(event.name)
+
+        # Process the message,
+        pass
+
+        # Restart HoldTimer, if the negotiated HoldTime value is non-zero
+        self.hold_timer = self.hold_time
+
+        #Remain in the Established state
+        pass
+
+    if event.name == "Event 28: UpdateMsgErr":
+        self.logger.info(event.name)
+
+        # Send a NOTIFICATION message with an Update error
+        pass
+
+        # Set the ConnectRetryTimer to zero
+        self.connect_retry_timer = 0
+
+        # Delete all routes associated with this connection
+        pass
+
+        # Release all BGP resouces
+        pass
+
+        # Drop the TCP connection
+        await self.close_connection()
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
+        # Change state to Idle
+        self.change_state("Idle")
+
+    if event.name == "Event 28: UpdateMsgErr":
+        self.logger.info(event.name)
+
+        # Send a NOTIFICATION message with the Error Code Finite State Machine Error
+        self.send_notificaion_message(bgp.message.FINITE_STATE_MACHINE_ERROR)
+
+        # Set the ConnectRetryTimer to zero
+        self.connect_retry_timer = 0
+
+        # Delete all routes associated with this connection
+        pass
+
+        # Release all BGP resouces
+        pass
+
+        # Drop the TCP connection
+        await self.close_connection()
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Stop to listen for a connection that may be initiated by the remote BGP peer
+        self.stop_server()
+
+        # Change state to Idle
+        self.change_state("Idle")
 
