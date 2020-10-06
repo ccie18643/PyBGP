@@ -25,7 +25,8 @@ def close_connection(self):
 
     self.logger.opt(depth=1).debug("Closing connection to peer")
 
-    self.task_open_connection.cancel()
+    if hasattr(self, "task_open_connection"):
+        self.task_open_connection.cancel()
 
     if self.writer:
         self.writer.close()
