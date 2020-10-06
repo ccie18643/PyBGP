@@ -95,7 +95,7 @@ class BgpFsm():
 
     def change_state(self, state):
         assert state in {"Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established"}
-        self.logger.info(f"State: {self.state} -> {state}")
+        self.logger.opt(depth=1).info(f"State: {self.state} -> {state}")
         self.state = state
         self.logger = loguru.logger.bind(peer=f"{self.peer_ip}:{self.peer_port}", state=self.state)
 

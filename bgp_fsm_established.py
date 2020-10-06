@@ -35,6 +35,12 @@ async def fsm_established(self, event):
         # Set the ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -55,6 +61,9 @@ async def fsm_established(self, event):
 
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")
@@ -85,6 +94,12 @@ async def fsm_established(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
+
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")
@@ -131,20 +146,27 @@ async def fsm_established(self, event):
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
-    if event.name == "Event 28: UpdateMsgErr":
+    if event.name in {"Event 9: ConnectRetryTimer_Expires", "Event 12: DelayOpenTimer_Expires", "Event 13: IdleHoldTimer_Expires",
+                      "Event 20: BGPOpen with DelayOpenTimer running", "Event 21: BGPHeaderErr", "Event 22: BGPOpenMsgErr"}:
         self.logger.info(event.name)
 
         # Send a NOTIFICATION message with the Error Code Finite State Machine Error
         self.send_notificaion_message(bgp.message.FINITE_STATE_MACHINE_ERROR)
 
-        # Set the ConnectRetryTimer to zero
-        self.connect_retry_timer = 0
-
         # Delete all routes associated with this connection
         pass
+
+        # Set the ConnectRetryTimer to zero
+        self.connect_retry_timer = 0
 
         # Release all BGP resouces
         pass
@@ -155,6 +177,11 @@ async def fsm_established(self, event):
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")

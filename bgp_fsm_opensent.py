@@ -32,6 +32,12 @@ async def fsm_opensent(self, event):
         # Set ConnectRetryCounter to zero
         self.connect_retry_counter = 0
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -53,6 +59,12 @@ async def fsm_opensent(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -70,6 +82,12 @@ async def fsm_opensent(self, event):
 
         # Continue to listen for a connection that may be initialized by the remote BGP peer
         pass
+
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Active
         self.change_state("Active")
@@ -119,6 +137,12 @@ async def fsm_opensent(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -136,6 +160,12 @@ async def fsm_opensent(self, event):
 
         # Drop the TCP connection
         await self.close_connection()
+
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")
@@ -162,6 +192,12 @@ async def fsm_opensent(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
+
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Chhange state to Idle
         self.change_state("Idle")

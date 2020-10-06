@@ -29,6 +29,12 @@ async def fsm_openconfirm(self, event):
         # Set the ConnectRetryTimer to zero
         self.connect_retry_timer = 0
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -49,6 +55,9 @@ async def fsm_openconfirm(self, event):
 
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")
@@ -79,6 +88,12 @@ async def fsm_openconfirm(self, event):
 
         # Increment the ConnectRetryCounter by 1
         self.connect_retry_counter += 1
+
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")
@@ -111,6 +126,12 @@ async def fsm_openconfirm(self, event):
         # Increment ConnectRetryCounter
         self.connect_retry_counter += 1
 
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
         # Change state to Idle
         self.change_state("Idle")
 
@@ -128,6 +149,12 @@ async def fsm_openconfirm(self, event):
 
         # Drop the TCP connection
         await self.close_connection()
+
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
 
         # Change state to Idle
         self.change_state("Idle")
@@ -162,6 +189,13 @@ async def fsm_openconfirm(self, event):
 
         # Increment the ConnectRetryCounter by 1
         connect_retry_counter += 1
+        
+        # Stop HoldTimer (not required by RFC4271)
+        self.hold_timer = 0
+
+        # Stop KeepaliveTimer (not required by RFC4271)
+        self.keepalive_timer = 0
+
 
         # Chhange state to Idle
         self.switch_state("Idle")
