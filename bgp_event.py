@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-class BgpEvent():
 
+class BgpEvent:
     def __init__(self, name, message=None, reader=None, writer=None, peer_ip=None, peer_port=None):
         self.name = name
         self.message = message

@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 
-import sys
 import asyncio
-import bgp_message
-
 import loguru
 
-from bgp_event import BgpEvent
 
-
-class BgpFsm():
+class BgpFsm:
 
     from bgp_timers import decrease_connect_retry_timer
     from bgp_timers import decrease_hold_timer
@@ -97,7 +92,13 @@ class BgpFsm():
         assert state in {"Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established"}
         self.logger.opt(depth=1).info(f"State: {self.state} -> {state}")
         self.state = state
-        self.logger = loguru.logger.bind(peer=f"{self.peer_ip}:{self.peer_port}", state=self.state)
+
+        if self.state == "Idle":
+            self.connect_retry_timer = 0
+            self.keepalive_timer = 0
+            self.hold_timer = 0
+            self.peer_port = 0
+            self.close_connection()
 
     async def fsm(self):
         """ Finite State Machine loop """
@@ -108,7 +109,7 @@ class BgpFsm():
 
                 if self.state == "Idle":
                     await self.fsm_idle(event)
-                
+
                 if self.state == "Connect":
                     await self.fsm_connect(event)
 
@@ -125,4 +126,3 @@ class BgpFsm():
                     await self.fsm_established(event)
 
             await asyncio.sleep(1)
-

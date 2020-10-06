@@ -4,7 +4,6 @@ import sys
 import asyncio
 import loguru
 
-import bgp_message
 from bgp_event import BgpEvent
 from bgp_session import BgpSession
 
@@ -34,13 +33,17 @@ async def start_bgp_broker():
 
 async def main():
     loguru.logger.remove(0)
-    loguru.logger.add(sys.stdout, colorize=True, level="DEBUG", format=f"<green>{{time:YY-MM-DD HH:mm:ss}}</green> <level>| {{level:7}} "
-            + f"|</level> <level>{{extra[peer]:21}} | <normal><cyan>{{function:33}}</cyan></normal> | {{extra[state]:11}} | {{message}}</level>")
+    loguru.logger.add(
+        sys.stdout,
+        colorize=True,
+        level="DEBUG",
+        format=f"<green>{{time:YY-MM-DD HH:mm:ss}}</green> <level>| {{level:7}} "
+        + f"|</level> <level>{{extra[peer]:21}} | <normal><cyan>{{function:33}}</cyan></normal> | {{extra[state]:11}} | {{message}}</level>",
+    )
 
     await start_bgp_broker()
 
-    BgpSession("192.168.9.201", 65000, 180, "192.168.9.202", 65000, bgp_listeners=BGP_LISTENERS, active=True, passive=False)
-
+    BgpSession("192.168.9.201", 65000, 180, "192.168.9.202", 65000, bgp_listeners=BGP_LISTENERS, active=False, passive=True)
 
     while True:
         await asyncio.sleep(1)
@@ -48,4 +51,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

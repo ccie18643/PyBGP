@@ -7,31 +7,32 @@ import bgp_message
 from bgp_event import BgpEvent
 
 
-
 async def open_connection(self):
     """ Open TCP connection to the BGP peer """
 
-    self.logger.opt(depth=0).debug(f"Opening connection to peer")
+    self.logger.opt(depth=0).debug("Opening connection to peer")
     try:
         reader, writer = await asyncio.open_connection(self.peer_ip, 179)
-        self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked", reader=reader, writer=writer, peer_ip=self.peer_ip, peer_port = 179))
+        self.enqueue_event(BgpEvent("Event 16: Tcp_CR_Acked", reader=reader, writer=writer, peer_ip=self.peer_ip, peer_port=179))
 
     except OSError:
         self.tcp_connection_established = False
         self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
 
 
-async def close_connection(self):
+def close_connection(self):
     """ Close TCP connection to the BGP peer """
 
-    self.logger.opt(depth=1).debug(f"Closing connection to peer")
+    self.logger.opt(depth=1).debug("Closing connection to peer")
+
+    self.task_open_connection.cancel()
 
     if self.writer:
         self.writer.close()
-        await self.writer.wait_closed()
-        self.tcp_connection_established = False
-        self.reader = None
-        self.writer = None
+
+    self.tcp_connection_established = False
+    self.reader = None
+    self.writer = None
 
 
 async def send_keepalive_message(self):
@@ -39,7 +40,7 @@ async def send_keepalive_message(self):
 
     if self.tcp_connection_established:
         message = bgp_message.Keepalive()
-       
+
         try:
             self.writer.write(message.write())
             await self.writer.drain()
@@ -73,7 +74,7 @@ async def send_notification_message(self, error_code, error_subcode=0, data=b"")
             self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
-    
+
         self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX]</magenta> Notification message ({error_code}, {error_subcode})")
 
     else:
@@ -106,7 +107,7 @@ async def send_open_message(self):
 async def send_update_message(self):
     """ Send Open message """
 
-    ### Need valid implementation here
+    # <!!!> Need valid implementation here
     pass
 
 
@@ -129,12 +130,12 @@ async def message_input_loop(self):
             self.tcp_connection_established = False
             await asyncio.sleep(1)
             continue
-            
+
         while len(data) >= 19:
             message = bgp_message.DecodeMessage(data, local_id=self.local_id, peer_asn=self.peer_asn)
 
             if message.data_length_error:
-                self.logger.warning(f"Received {message_data_length_received} bytes of data, expected at least {message.data_length_expected}")
+                self.logger.warning(f"Received {message.data_length_received} bytes of data, expected at least {message.data_length_expected}")
                 self.tcp_connection_established = False
                 self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                 await asyncio.sleep(1)
@@ -156,7 +157,7 @@ async def message_input_loop(self):
 
             if message.type == bgp_message.UPDATE:
                 self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Update message")
-                ### Requires proper handler here
+                # <!!!> Requires proper handler here
 
             if message.type == bgp_message.NOTIFICATION:
                 self.logger.opt(ansi=True).info(f"<magenta>[RX]</magenta> Notification message ({message.error_code}, {message.error_subcode})")
@@ -190,4 +191,3 @@ async def message_input_loop(self):
 
         else:
             await asyncio.sleep(1)
-

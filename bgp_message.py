@@ -26,7 +26,7 @@ UNSUPPORTED_VERSION_NUMBER = 1
 BAD_PEER_AS = 2
 BAD_BGP_IDENTIFIER = 3
 UNSUPPORTED_OPTIONAL_PARAMETER = 4
-UNACEPTABLE_HOLD_TIME = 6
+UNACCEPTABLE_HOLD_TIME = 6
 
 # UPDATE message error subcodes
 MALFORMED_ATTRIBUTE_LIST = 1
@@ -40,7 +40,8 @@ OPTIONAL_ATTRIBUTE_ERROR = 9
 INVALID_NETWORK_FIELD = 10
 MALFORMED_AS_PATH = 11
 
-class DecodeMessage():
+
+class DecodeMessage:
     def __init__(self, data, local_id="0.0.0.0", peer_asn=0):
 
         self.data_length_error = False
@@ -58,7 +59,7 @@ class DecodeMessage():
 
         # Validate Marker field
         for m in struct.iter_unpack("!B", data[:16]):
-            if m[0] != 0xff:
+            if m[0] != 0xFF:
                 self.message_error_code = MESSAGE_HEADER_ERROR
                 self.message_error_subcode = CONNECTION_NOT_SYNCHRONISED
                 return
@@ -95,8 +96,8 @@ class DecodeMessage():
                 return
 
             self.version, self.asn, self.hold_time, self.id, self.opt_len = struct.unpack("!BHHIB", data[19:29])
-            self.id = socket.inet_ntoa(struct.pack('!L', self.id))
-            opt_param = data[29:self.length]
+            self.id = socket.inet_ntoa(struct.pack("!L", self.id))
+            self.opt_param = data[29:self.length]
 
             if self.version != 4:
                 self.message_error_code = OPEN_MESSAGE_ERROR
@@ -106,12 +107,12 @@ class DecodeMessage():
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = BAD_PEER_AS
 
-            ### Need to check for valid unicast IP
+            # <!!!> Need to check for valid unicast IP
             if self.id == local_id:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = BAD_BGP_IDENTIFIER
 
-            ### Need to add check for supported optional parameters
+            # <!!!> Need to add check for supported optional parameters
 
             if self.hold_time in {1, 2}:
                 self.message_error_code = OPEN_MESSAGE_ERROR
@@ -148,8 +149,12 @@ class Open:
         self.opt = opt
 
     def write(self):
-        return b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" + struct.pack("!HB",
-                self.len, self.type) + struct.pack("!BHHIB", self.version, self.asn, self.hold_time, self.bgp_id, self.opt_len) + self.opt
+        return (
+            b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
+            + struct.pack("!HB", self.len, self.type)
+            + struct.pack("!BHHIB", self.version, self.asn, self.hold_time, self.bgp_id, self.opt_len)
+            + self.opt
+        )
 
 
 class Notification:
@@ -161,15 +166,18 @@ class Notification:
         self.data = data
 
     def write(self):
-        return b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" + struct.pack("!HB",
-                self.len, self.type) + struct.pack("!BB",
-                self.error_code, self.error_subcode) + self.data
+        return (
+            b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
+            + struct.pack("!HB", self.len, self.type)
+            + struct.pack("!BB", self.error_code, self.error_subcode)
+            + self.data
+        )
 
 
 class Update:
     def __init__(self):
         pass
-    
+
 
 class Keepalive:
     def __init__(self):
@@ -179,4 +187,3 @@ class Keepalive:
         self.len = 19
         self.type = KEEPALIVE
         return b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" + struct.pack("!HB", self.len, self.type)
-

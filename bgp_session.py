@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
-import sys
 import asyncio
-import bgp_message
-
-import loguru
 
 from bgp_event import BgpEvent
 from bgp_fsm import BgpFsm
 
 
-class BgpSession():
-
+class BgpSession:
     def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn, bgp_listeners=None, active=True, passive=True):
         """ Class constructor """
 
@@ -56,14 +51,3 @@ class BgpSession():
             if self.passive_fsm.state == "Idle":
                 self.passive_fsm.enqueue_event(BgpEvent("Event 5: AutomaticStart_with_PassiveTcpEstablishment"))
                 self.bgp_listeners[self.peer_ip] = self.passive_fsm
-
-
-
-
-
-
-
-
-
-
-

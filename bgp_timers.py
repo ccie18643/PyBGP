@@ -8,7 +8,7 @@ from bgp_event import BgpEvent
 async def decrease_connect_retry_timer(self):
     """ Decrease connect_retry_timer every second if its value is greater than zero """
 
-    self.logger.debug(f"Starting decrease_connect_retry_timer() coroutine")
+    self.logger.debug("Starting decrease_connect_retry_timer() coroutine")
 
     if not hasattr(self, "connect_retry_timer"):
         self.connect_retry_timer = 0
@@ -25,7 +25,7 @@ async def decrease_connect_retry_timer(self):
 async def decrease_hold_timer(self):
     """ Decrease hold_timer every second if its value is greater than zero """
 
-    self.logger.debug(f"Starting decrease_hold_timer() coroutine")
+    self.logger.debug("Starting decrease_hold_timer() coroutine")
 
     if not hasattr(self, "hold_timer"):
         self.hold_timer = 0
@@ -42,7 +42,7 @@ async def decrease_hold_timer(self):
 async def decrease_keepalive_timer(self):
     """ Decrease keepalive_timer every second if its value is greater than zero """
 
-    self.logger.debug(f"Starting decrease_keepalive_timer() coroutine")
+    self.logger.debug("Starting decrease_keepalive_timer() coroutine")
 
     if not hasattr(self, "keepalive_timer"):
         self.keepalive_timer = 0
