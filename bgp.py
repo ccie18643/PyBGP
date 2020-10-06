@@ -43,7 +43,7 @@ async def main():
 
     await start_bgp_broker()
 
-    BgpSession("192.168.9.201", 65000, 180, "192.168.9.202", 65000, bgp_listeners=BGP_LISTENERS, active=False, passive=True)
+    BgpSession("192.168.9.201", 65000, 180, "192.168.9.202", 65000, bgp_listeners=BGP_LISTENERS, active=True, passive=True)
 
     while True:
         await asyncio.sleep(1)

@@ -34,7 +34,7 @@ async def fsm_opensent(self, event):
         self.logger.info(event.name)
 
         # Close the TCP connection
-        await self.close_connection()
+        self.close_connection()
 
         # Restart the ConnectRetryTimer
         self.connect_retry_timer = self.connect_retry_time
