@@ -16,6 +16,15 @@ async def fsm_active(self, event):
         # Change state to Idle
         self.change_state("Idle")
 
+    if event.name == "Event 8: AutomaticStop":
+        self.logger.info(event.name)
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Change state to Idle
+        self.change_state("Idle")
+
     if event.name == "Event 9: ConnectRetryTimer_Expires":
         self.logger.info(event.name)
 

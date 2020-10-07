@@ -18,6 +18,18 @@ async def fsm_opensent(self, event):
         # Change state to Idle
         self.change_state("Idle")
 
+    if event.name == "Event 8: AutomaticStop":
+        self.logger.info(event.name)
+
+        # Send the NOTIFICATION with a Cease
+        await self.send_notification_message(bgp_message.CEASE)
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Change state to Idle
+        self.change_state("Idle")
+
     if event.name == "Event 10: HoldTimer_Expires":
         self.logger.info(event.name)
 
@@ -69,6 +81,9 @@ async def fsm_opensent(self, event):
         # Set a KeepAliveTimer
         self.keepalive_time = self.hold_time // 3
         self.keepalive_timer = self.keepalive_time
+
+        # Save the peer BGP ID to be used for collision detection
+        self.peer_id = message.id
 
         # Change state to OpenConfirm
         self.change_state("OpenConfirm")

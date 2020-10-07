@@ -18,6 +18,18 @@ async def fsm_openconfirm(self, event):
         # Change state to Idle
         self.change_state("Idle")
 
+    if event.name == "Event 8: AutomaticStop":
+        self.logger.info(event.name)
+
+        # Send the NOTIFICATION with a Cease
+        await self.send_notification_message(bgp_message.CEASE)
+
+        # Increment the ConnectRetryCounter by 1
+        self.connect_retry_counter += 1
+
+        # Change state to Idle
+        self.change_state("Idle")
+
     if event.name == "Event 10: HoldTimer_Expires":
         self.logger.info(event.name)
 

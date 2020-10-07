@@ -3,6 +3,7 @@
 import asyncio
 import loguru
 
+import bgp_message
 
 class BgpFsm:
 
@@ -36,7 +37,10 @@ class BgpFsm:
 
         self.peer_port = 0
 
+        self.peer_id = None
+
         self.event_queue = []
+        self.event_serial_number = 0
 
         self.reader = None
         self.writer = None
@@ -69,27 +73,53 @@ class BgpFsm:
 
         self.connect_retry_time = 5
 
-    async def asyncio_init(self):
-        """ Start all coroutines and make sure they run before returning """
+        self.task_fsm = asyncio.create_task(self.fsm())
+        self.task_decrease_hold_timer = asyncio.create_task(self.decrease_hold_timer())
+        self.task_decrease_connect_retry_timer = asyncio.create_task(self.decrease_connect_retry_timer())
+        self.task_decrease_keepalive_timer = asyncio.create_task(self.decrease_keepalive_timer())
+        self.task_message_input_loop = asyncio.create_task(self.message_input_loop())
 
-        asyncio.create_task(self.fsm())
-        asyncio.create_task(self.decrease_hold_timer())
-        asyncio.create_task(self.decrease_connect_retry_timer())
-        asyncio.create_task(self.decrease_keepalive_timer())
-        asyncio.create_task(self.message_input_loop())
-        await asyncio.sleep(1)
+    def __del__(self):
+        """ Class destructor """
+
+        self.close_connection()
+        self.task_fsm.cancel()
+        self.task_decrease_hold_timer.cancel()
+        self.task_decrease_connect_retry_timer.cancel()
+        self.task_decrease_keepalive_timer.cancel()
+        self.task_message_input_loop.cancel()
 
     def enqueue_event(self, event):
-        self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[ENQ]</cyan> {event.name}")
+        """ Add new event to the event queue """
+
+        # Add serial number to event for ease of debuging
+        self.event_serial_number += 1
+
+        if self.event_serial_number > 65535:
+            event_serial_number = 1
+
+        event.serial_number = self.event_serial_number
+
+        # In case Stop event is being enqueued flush the queue to expedite it
+        if event in {"Event 2: ManualStop", "Event 8: AutomaticStop"}:
+            self.event_queue.clear()
+
         self.event_queue.append(event)
 
+        self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[ENQ]</cyan> {event.name} [#{event.serial_number}]")
+
     def dequeue_event(self):
+        """ Pick an event from the event queue """
+
         event = self.event_queue.pop(0)
-        self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[DEQ]</cyan> {event.name}")
+        self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[DEQ]</cyan> {event.name} [#{event.serial_number}]")
         return event
 
     def change_state(self, state):
+        """ Change FSM state """
+
         assert state in {"Idle", "Connect", "Active", "OpenSent", "OpenConfirm", "Established"}
+
         self.logger.opt(depth=1).info(f"State: {self.state} -> {state}")
         self.state = state
 
