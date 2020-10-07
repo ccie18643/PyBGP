@@ -101,9 +101,8 @@ class BgpFsm:
         event.serial_number = self.event_serial_number
 
         # In case Stop event is being enqueued flush the queue to expedite it
-        if event in {"Event 2: ManualStop", "Event 8: AutomaticStop"}:
+        if event.name in {"Event 2: ManualStop", "Event 8: AutomaticStop"}:
             self.event_queue.clear()
-
         self.event_queue.append(event)
 
         self.logger.opt(ansi=True, depth=1).debug(f"<cyan>[ENQ]</cyan> {event.name} [#{event.serial_number}]")

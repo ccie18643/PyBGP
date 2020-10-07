@@ -49,7 +49,7 @@ class BgpSession:
     async def connection_collision_detection(self):
         """ Perform collision detection and shutdown non preffered connection """
 
-        self.logger = loguru.logger.bind(peer="", state="")
+        self.logger = loguru.logger.bind(peer=self.peer_ip, state="")
 
         await asyncio.sleep(1)
 
