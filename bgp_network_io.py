@@ -153,7 +153,7 @@ async def message_input_loop(self):
                 break
 
             if message.type == bgp_message.OPEN:
-                self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Open message")
+                self.logger.opt(ansi=True).info(f"<magenta>[RX]</magenta> Open message (peer_id: {message.id})")
                 self.enqueue_event(BgpEvent("Event 19: BGPOpen", message))
 
             if message.type == bgp_message.UPDATE:
