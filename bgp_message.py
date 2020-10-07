@@ -1,5 +1,15 @@
+#!/usr/bin/env python3
+
+"""
+
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp_message.py - module containing support class for handling BGP messages
+
+"""
+
 import struct
 import socket
+
 
 OPEN = 1
 UPDATE = 2

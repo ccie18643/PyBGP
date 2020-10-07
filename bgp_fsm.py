@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp_fsm.py - module containing main part of the FSM class
+
+"""
+
 import asyncio
 import loguru
 

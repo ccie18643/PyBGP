@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
+"""
+
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp_network_io.py - module containing FSM class mthods responsible for network communication with BGP peers
+
+"""
+
 import asyncio
 
 import bgp_message
-
 from bgp_event import BgpEvent
 
 

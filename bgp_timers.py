@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp_timers.py - module containing FSM class mthods responsible for handling BGP timers
+
+"""
+
 import asyncio
 
 from bgp_event import BgpEvent

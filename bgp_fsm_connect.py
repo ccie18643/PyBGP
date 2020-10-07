@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 
-import asyncio
+"""
 
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp_fsm_connect.py - module containing FSM class mthods responsible for handling Connect state
+
+"""
+
+import asyncio
 import loguru
 
 

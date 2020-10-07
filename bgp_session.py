@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp_session.py - module containing BgpSession class responsible for creating connections to BGP peers
+
+"""
+
 import asyncio
 import struct
 import socket

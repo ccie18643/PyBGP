@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+
+PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
+bgp.py - main program module used to start service
+
+"""
+
 import sys
 import asyncio
 import loguru
@@ -43,7 +50,38 @@ async def main():
 
     await start_bgp_broker()
 
-    BgpSession("1.1.1.1", 65000, 180, "192.168.9.202", 65000, bgp_listeners=BGP_LISTENERS, active_mode=True, passive_mode=True)
+    BgpSession(
+        local_id="1.1.1.1",
+        local_asn=65000,
+        local_hold_time=180,
+        peer_ip="192.168.9.202",
+        peer_asn=65000,
+        bgp_listeners=BGP_LISTENERS,
+        active_mode=True,
+        passive_mode=True,
+    )
+
+    BgpSession(
+        local_id="1.1.1.1",
+        local_asn=65000,
+        local_hold_time=180,
+        peer_ip="192.168.9.203",
+        peer_asn=65000,
+        bgp_listeners=BGP_LISTENERS,
+        active_mode=True,
+        passive_mode=True,
+    )
+
+    BgpSession(
+        local_id="1.1.1.1",
+        local_asn=65000,
+        local_hold_time=180,
+        peer_ip="192.168.9.204",
+        peer_asn=65000,
+        bgp_listeners=BGP_LISTENERS,
+        active_mode=True,
+        passive_mode=True,
+    )
 
     while True:
         await asyncio.sleep(1)
