@@ -26,7 +26,7 @@ class BgpFsm:
     from bgp_fsm_openconfirm import fsm_openconfirm
     from bgp_fsm_established import fsm_established
 
-    def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn):
+    def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn, mode):
         """ Class constructor """
 
         self.local_id = local_id
@@ -34,6 +34,7 @@ class BgpFsm:
         self.local_hold_time = local_hold_time
         self.peer_ip = peer_ip
         self.peer_asn = peer_asn
+        self.mode = mode
 
         self.peer_port = 0
 
@@ -69,7 +70,7 @@ class BgpFsm:
         self.send_notification_without_open = False
         self.track_tcp_state = False
 
-        self.logger = loguru.logger.bind(peer=f"{self.peer_ip}:{self.peer_port}", state=self.state)
+        self.logger = loguru.logger.bind(peer=f"{self.mode} {self.peer_ip}:{self.peer_port}", state=self.state)
 
         self.connect_retry_time = 5
 
@@ -122,7 +123,7 @@ class BgpFsm:
         self.logger.opt(depth=1).info(f"State: {self.state} -> {state}")
         self.state = state
 
-        self.logger = loguru.logger.bind(peer=f"{self.peer_ip}:{self.peer_port}", state=self.state)
+        self.logger = loguru.logger.bind(peer=f"{self.mode} {self.peer_ip}:{self.peer_port}", state=self.state)
 
         if self.state == "Idle":
             self.connect_retry_timer = 0

@@ -25,8 +25,8 @@ class BgpSession:
         self.active_fsm = None
         self.passive_fsm = None
 
-        self.active_fsm = BgpFsm(self.local_id, self.local_asn, self.local_hold_time, self.peer_ip, self.peer_asn)
-        self.passive_fsm = BgpFsm(self.local_id, self.local_asn, self.local_hold_time, self.peer_ip, self.peer_asn)
+        self.active_fsm = BgpFsm(self.local_id, self.local_asn, self.local_hold_time, self.peer_ip, self.peer_asn, mode="A")
+        self.passive_fsm = BgpFsm(self.local_id, self.local_asn, self.local_hold_time, self.peer_ip, self.peer_asn, mode="P")
 
         asyncio.create_task(self.connection_state_tracking())
         asyncio.create_task(self.connection_collision_detection())
@@ -49,7 +49,7 @@ class BgpSession:
     async def connection_collision_detection(self):
         """ Perform collision detection and shutdown non preffered connection """
 
-        self.logger = loguru.logger.bind(peer=self.peer_ip, state="")
+        self.logger = loguru.logger.bind(peer="S " + self.peer_ip, state="")
 
         await asyncio.sleep(1)
 

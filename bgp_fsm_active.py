@@ -51,7 +51,7 @@ async def fsm_active(self, event):
         self.peer_port = event.peer_port
         self.tcp_connection_established = True
 
-        self.logger = loguru.logger.bind(peer=f"{self.peer_ip}:{self.peer_port}", state=self.state)
+        self.logger = loguru.logger.bind(peer=f"{self.mode} {self.peer_ip}:{self.peer_port}", state=self.state)
 
         self.logger.info(event.name)
 
