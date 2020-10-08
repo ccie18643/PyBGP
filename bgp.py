@@ -60,7 +60,8 @@ async def main():
         active_mode=True,
         passive_mode=True,
     )
-
+    
+    '''
     BgpSession(
         local_id="1.1.1.1",
         local_asn=65000,
@@ -82,7 +83,8 @@ async def main():
         active_mode=True,
         passive_mode=True,
     )
-
+    '''
+ 
     while True:
         await asyncio.sleep(1)
 
