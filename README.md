@@ -8,12 +8,12 @@ Basic BGP implementation in Python for educational purposes. At this time it ful
 
 
 
-### Finite State Machine establishing connectivity to peer router by using active TCP connection
+### Finite State Machine establishing connectivity by using active TCP connection
 ![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/ss02.png)
 
 
 
-### Finite State Machine establishing connectivity to peer router by using passive TCP connection
+### Finite State Machine establishing connectivity by using passive TCP connection
 ![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/ss02.png)
 
 
