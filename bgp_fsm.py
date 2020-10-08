@@ -164,4 +164,4 @@ class BgpFsm:
                 if self.state == "Established":
                     await self.fsm_established(event)
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
