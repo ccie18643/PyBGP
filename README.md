@@ -4,20 +4,20 @@ Basic BGP implementation in Python for educational purposes. At this time it ful
 
 
 ### Comunication with three BGP peers
-![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/ss01.png)
+![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_01.png)
 
 
 
 ### Finite State Machine establishing connectivity by using active TCP connection
-![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/ss02.png)
+![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_02.png)
 
 
 
 ### Finite State Machine establishing connectivity by using passive TCP connection
-![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/ss02.png)
+![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_03.png)
 
 
 
 ### Finite State Machine chosing passive over active connection due to peer's higher BGP ID
-![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/ss03.png)
+![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_04.png)
 
