@@ -80,5 +80,5 @@ class BgpSession:
                         self.logger.debug("Collision detection OC/OC LID < PID - Closing active connection")
                         self.active_fsm.enqueue_event(BgpEvent("Event 8: AutomaticStop"))
 
-            await asyncio.sleep(1)
+            await asyncio.sleep(0.1)
 
