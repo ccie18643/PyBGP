@@ -1,6 +1,23 @@
 # PyBGP - Python BGP project
 
-Basic BGP implementation in Python for educational purposes. At this time it fully supports Finite State Machine and its able to open and maintain connectivity to BGP peer in either passive or active mode. Connection collision detection is already implemented so its able to drop less desired connection if two of them form simultaneously. Project written in Python using Asyncio. Can support connectivity to multiple peers at the same time. Next to do is implementation of BGP updates.
+Python / Asyncio based BGP implementation. At this time it fully supports Finite State Machine and its able to open and maintain connectivity to BGP peer in either passive or active mode. Connection collision detection is already implemented so it's able to drop less desired connection if two of them form simultaneously. Can support connectivity to multiple peers at the same time.
+
+
+#### Already implemented:
+
+ - TX/RX Network IO - running as coroutine
+ - Finite State Machine - running as coroutine
+ - Event system with message queuing
+ - Passive and Active connectivity with collision detection mechanism
+ - Ability to maintain simultaneous connectivity with multiple peers
+
+#### Work in progress:
+
+ - BGP Updates
+
+#### Next steps:
+
+ - Implementing fully functional Route Reflector
 
 
 ### Comunication with three BGP peers
