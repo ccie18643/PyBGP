@@ -5,9 +5,11 @@ Python / Asyncio based BGP implementation. At this time it fully supports Finite
 
 #### Already implemented:
 
- - TX/RX Network IO - running as coroutine
  - Finite State Machine - running as coroutine
  - Event system with message queuing
+ - TX/RX Network IO - running as coroutine
+ - Timers - connect_retry, hold, keepalive
+ - Support for parsing and creating of BGP messages
  - Passive and Active connectivity with collision detection mechanism
  - Ability to maintain simultaneous connectivity with multiple peers
 
