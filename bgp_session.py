@@ -1,15 +1,33 @@
 #!/usr/bin/env python3
 
-"""
+############################################################################
+#                                                                          #
+#  PyBGP - Python BGP implementation                                       #
+#  Copyright (C) 2020  Sebastian Majewski                                  #
+#                                                                          #
+#  This program is free software: you can redistribute it and/or modify    #
+#  it under the terms of the GNU General Public License as published by    #
+#  the Free Software Foundation, either version 3 of the License, or       #
+#  (at your option) any later version.                                     #
+#                                                                          #
+#  This program is distributed in the hope that it will be useful,         #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of          #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           #
+#  GNU General Public License for more details.                            #
+#                                                                          #
+#  You should have received a copy of the GNU General Public License       #
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
+#                                                                          #
+#  Author's email: ccie18643@gmail.com                                     #
+#  Github repository: https://github.com/ccie18643/PyBGP                   #
+#                                                                          #
+############################################################################
 
-PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
-bgp_session.py - module containing BgpSession class responsible for creating connections to BGP peers
-
-"""
 
 import asyncio
-import struct
 import socket
+import struct
+
 import loguru
 
 from bgp_event import BgpEvent
@@ -54,7 +72,7 @@ class BgpSession:
             await asyncio.sleep(10)
 
     async def connection_collision_detection(self):
-        """ Perform collision detection and shutdown non preffered connection """
+        """ Perform collision detection and shutdown non preferred connection """
 
         self.logger = loguru.logger.bind(peer="S " + self.peer_ip, state="")
 
@@ -81,4 +99,3 @@ class BgpSession:
                         self.active_fsm.enqueue_event(BgpEvent("Event 8: AutomaticStop"))
 
             await asyncio.sleep(0.1)
-

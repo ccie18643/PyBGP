@@ -22,7 +22,7 @@ Python / Asyncio based BGP implementation. At this time it fully supports Finite
  - Implementing fully functional Route Reflector
 
 
-### Comunication with three BGP peers
+### Communication with three BGP peers
 ![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_01.png)
 
 
@@ -37,6 +37,6 @@ Python / Asyncio based BGP implementation. At this time it fully supports Finite
 
 
 
-### Finite State Machine chosing passive over active connection due to peer's higher BGP ID
+### Finite State Machine choosing passive over active connection due to peer's higher BGP ID
 ![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_04.png)
 

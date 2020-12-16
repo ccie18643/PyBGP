@@ -1,15 +1,31 @@
 #!/usr/bin/env python3
 
-"""
+############################################################################
+#                                                                          #
+#  PyBGP - Python BGP implementation                                       #
+#  Copyright (C) 2020  Sebastian Majewski                                  #
+#                                                                          #
+#  This program is free software: you can redistribute it and/or modify    #
+#  it under the terms of the GNU General Public License as published by    #
+#  the Free Software Foundation, either version 3 of the License, or       #
+#  (at your option) any later version.                                     #
+#                                                                          #
+#  This program is distributed in the hope that it will be useful,         #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of          #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           #
+#  GNU General Public License for more details.                            #
+#                                                                          #
+#  You should have received a copy of the GNU General Public License       #
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
+#                                                                          #
+#  Author's email: ccie18643@gmail.com                                     #
+#  Github repository: https://github.com/ccie18643/PyBGP                   #
+#                                                                          #
+############################################################################
 
-PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
-bgp_message.py - module containing support class for handling BGP messages
 
-"""
-
-import struct
 import socket
-
+import struct
 
 OPEN = 1
 UPDATE = 2
@@ -107,7 +123,7 @@ class DecodeMessage:
 
             self.version, self.asn, self.hold_time, self.id, self.opt_len = struct.unpack("!BHHIB", data[19:29])
             self.id = socket.inet_ntoa(struct.pack("!L", self.id))
-            self.opt_param = data[29:self.length]
+            self.opt_param = data[29 : self.length]
 
             if self.version != 4:
                 self.message_error_code = OPEN_MESSAGE_ERROR
@@ -141,7 +157,7 @@ class DecodeMessage:
                 return
 
             self.error_code, self.error_subcode = struct.unpack("!BB", data[19:21])
-            self.error_data = data[21:self.length]
+            self.error_data = data[21 : self.length]
 
         if self.type == KEEPALIVE:
             pass

@@ -1,37 +1,56 @@
 #!/usr/bin/env python3
 
-"""
+############################################################################
+#                                                                          #
+#  PyBGP - Python BGP implementation                                       #
+#  Copyright (C) 2020  Sebastian Majewski                                  #
+#                                                                          #
+#  This program is free software: you can redistribute it and/or modify    #
+#  it under the terms of the GNU General Public License as published by    #
+#  the Free Software Foundation, either version 3 of the License, or       #
+#  (at your option) any later version.                                     #
+#                                                                          #
+#  This program is distributed in the hope that it will be useful,         #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of          #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           #
+#  GNU General Public License for more details.                            #
+#                                                                          #
+#  You should have received a copy of the GNU General Public License       #
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
+#                                                                          #
+#  Author's email: ccie18643@gmail.com                                     #
+#  Github repository: https://github.com/ccie18643/PyBGP                   #
+#                                                                          #
+############################################################################
 
-PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
-bgp_fsm.py - module containing main part of the FSM class
-
-"""
 
 import asyncio
+
 import loguru
 
-import bgp_message
 
 class BgpFsm:
 
-    from bgp_timers import decrease_connect_retry_timer
-    from bgp_timers import decrease_hold_timer
-    from bgp_timers import decrease_keepalive_timer
-
-    from bgp_network_io import open_connection
-    from bgp_network_io import close_connection
-    from bgp_network_io import send_keepalive_message
-    from bgp_network_io import send_notification_message
-    from bgp_network_io import send_open_message
-    from bgp_network_io import send_update_message
-    from bgp_network_io import message_input_loop
-
-    from bgp_fsm_idle import fsm_idle
-    from bgp_fsm_connect import fsm_connect
     from bgp_fsm_active import fsm_active
-    from bgp_fsm_opensent import fsm_opensent
-    from bgp_fsm_openconfirm import fsm_openconfirm
+    from bgp_fsm_connect import fsm_connect
     from bgp_fsm_established import fsm_established
+    from bgp_fsm_idle import fsm_idle
+    from bgp_fsm_openconfirm import fsm_openconfirm
+    from bgp_fsm_opensent import fsm_opensent
+    from bgp_network_io import (
+        close_connection,
+        message_input_loop,
+        open_connection,
+        send_keepalive_message,
+        send_notification_message,
+        send_open_message,
+        send_update_message,
+    )
+    from bgp_timers import (
+        decrease_connect_retry_timer,
+        decrease_hold_timer,
+        decrease_keepalive_timer,
+    )
 
     def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn, mode):
         """ Class constructor """
@@ -100,7 +119,7 @@ class BgpFsm:
     def enqueue_event(self, event):
         """ Add new event to the event queue """
 
-        # Add serial number to event for ease of debuging
+        # Add serial number to event for ease of debugging
         self.event_serial_number += 1
 
         if self.event_serial_number > 65535:

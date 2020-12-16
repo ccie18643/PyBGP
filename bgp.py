@@ -1,19 +1,36 @@
 #!/usr/bin/env python3
 
-"""
+############################################################################
+#                                                                          #
+#  PyBGP - Python BGP implementation                                       #
+#  Copyright (C) 2020  Sebastian Majewski                                  #
+#                                                                          #
+#  This program is free software: you can redistribute it and/or modify    #
+#  it under the terms of the GNU General Public License as published by    #
+#  the Free Software Foundation, either version 3 of the License, or       #
+#  (at your option) any later version.                                     #
+#                                                                          #
+#  This program is distributed in the hope that it will be useful,         #
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of          #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the           #
+#  GNU General Public License for more details.                            #
+#                                                                          #
+#  You should have received a copy of the GNU General Public License       #
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.  #
+#                                                                          #
+#  Author's email: ccie18643@gmail.com                                     #
+#  Github repository: https://github.com/ccie18643/PyBGP                   #
+#                                                                          #
+############################################################################
 
-PyBGP, Python BGP implmentation version 0.1 - 2020, Sebastian Majewski
-bgp.py - main program module used to start service
 
-"""
-
-import sys
 import asyncio
+import sys
+
 import loguru
 
 from bgp_event import BgpEvent
 from bgp_session import BgpSession
-
 
 BGP_LISTENERS = {}
 
@@ -33,7 +50,7 @@ async def bgp_broker(reader, writer):
 
 
 async def start_bgp_broker():
-    """ Start listening for incomming BGP connections on port 179"""
+    """ Start listening for incoming BGP connections on port 179"""
 
     await asyncio.start_server(bgp_broker, "0.0.0.0", 179)
 
@@ -60,8 +77,8 @@ async def main():
         active_mode=True,
         passive_mode=True,
     )
-    
-    '''
+
+    """
     BgpSession(
         local_id="1.1.1.1",
         local_asn=65000,
@@ -83,8 +100,8 @@ async def main():
         active_mode=True,
         passive_mode=True,
     )
-    '''
- 
+    """
+
     while True:
         await asyncio.sleep(1)
 
