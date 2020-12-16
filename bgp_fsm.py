@@ -37,7 +37,12 @@ class BgpFsm:
     from bgp_fsm_idle import fsm_idle
     from bgp_fsm_openconfirm import fsm_openconfirm
     from bgp_fsm_opensent import fsm_opensent
-    from bgp_network_io import (
+    from bgp_timers import (
+        decrease_connect_retry_timer,
+        decrease_hold_timer,
+        decrease_keepalive_timer,
+    )
+    from network_io import (
         close_connection,
         message_input_loop,
         open_connection,
@@ -45,11 +50,6 @@ class BgpFsm:
         send_notification_message,
         send_open_message,
         send_update_message,
-    )
-    from bgp_timers import (
-        decrease_connect_retry_timer,
-        decrease_hold_timer,
-        decrease_keepalive_timer,
     )
 
     def __init__(self, local_id, local_asn, local_hold_time, peer_ip, peer_asn, mode):
