@@ -144,8 +144,31 @@ class DecodeMessage:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = UNACCEPTABLE_HOLD_TIME
 
+            return
+
         if self.type == UPDATE:
-            pass
+
+            prefixes_del_len = struct.unpack("!H", data[19:21])[0]
+            prefixes_del_raw = data[21 : 21 + prefixes_del_len]
+            self.prefixes_del = []
+            i = 0
+            while i < len(prefixes_del_raw):
+                prefix = IPv4Prefix(prefixes_del_raw[i:])
+                self.prefixes_del.append(prefix)
+                i += prefix.size + 1
+
+            atribute_len = struct.unpack("!H", data[21 + prefixes_del_len : 21 + prefixes_del_len + 2])[0]
+            atributes_raw = data[21 + prefixes_del_len + 2 : 21 + prefixes_del_len + 2 + atribute_len]
+
+            prefixes_add_raw = data[21 + prefixes_del_len + 2 + atribute_len :]
+            self.prefixes_add = []
+            i = 0
+            while i < len(prefixes_add_raw):
+                prefix = IPv4Prefix(prefixes_add_raw[i:])
+                self.prefixes_add.append(prefix)
+                i += prefix.size + 1
+
+            return
 
         if self.type == NOTIFICATION:
 
@@ -158,9 +181,10 @@ class DecodeMessage:
 
             self.error_code, self.error_subcode = struct.unpack("!BB", data[19:21])
             self.error_data = data[21 : self.length]
+            return
 
         if self.type == KEEPALIVE:
-            pass
+            return
 
 
 class Open:
@@ -176,7 +200,7 @@ class Open:
 
     def write(self):
         return (
-            b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
+            b"\xff" * 16
             + struct.pack("!HB", self.len, self.type)
             + struct.pack("!BHHIB", self.version, self.asn, self.hold_time, self.bgp_id, self.opt_len)
             + self.opt
@@ -192,12 +216,7 @@ class Notification:
         self.data = data
 
     def write(self):
-        return (
-            b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
-            + struct.pack("!HB", self.len, self.type)
-            + struct.pack("!BB", self.error_code, self.error_subcode)
-            + self.data
-        )
+        return b"\xff" * 16 + struct.pack("!HB", self.len, self.type) + struct.pack("!BB", self.error_code, self.error_subcode) + self.data
 
 
 class Update:
@@ -212,4 +231,16 @@ class Keepalive:
     def write(self):
         self.len = 19
         self.type = KEEPALIVE
-        return b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff" + struct.pack("!HB", self.len, self.type)
+        return b"\xff" * 16 + struct.pack("!HB", self.len, self.type)
+
+
+class IPv4Prefix:
+    def __init__(self, raw_data):
+        self.len = raw_data[0]
+        self.size = (self.len >> 3) + ((self.len & 3) and 1)
+        self.bytes = [_ for _ in raw_data[1 : 1 + self.size]]
+        for _ in range(4 - self.size):
+            self.bytes.append(0)
+
+    def __str__(self):
+        return ".".join([str(_) for _ in self.bytes]) + f"/{self.len}"

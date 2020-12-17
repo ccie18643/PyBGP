@@ -70,16 +70,16 @@ async def send_keepalive_message(self):
             await self.writer.drain()
 
         except OSError:
-            self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Keepalive message")
+            self.logger.opt(ansi=True, depth=1).error("<magenta>[TX-ERR]</> KEEPALIVE")
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
             self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
 
-        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Keepalive message")
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</> KEEPALIVE")
 
     else:
-        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Keepalive message")
+        self.logger.opt(ansi=True, depth=1).error("<magenta>[TX-ERR]</> KEEPALIVE")
 
 
 async def send_notification_message(self, error_code, error_subcode=0, data=b""):
@@ -93,16 +93,16 @@ async def send_notification_message(self, error_code, error_subcode=0, data=b"")
             await self.writer.drain()
 
         except OSError:
-            self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</magenta> Notification message ({error_code}, {error_subcode})")
+            self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</> NOTIFICATION - {error_code}, {error_subcode}")
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
             self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
 
-        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX]</magenta> Notification message ({error_code}, {error_subcode})")
+        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX]</> NOTIFICATION {error_code}, {error_subcode}")
 
     else:
-        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</magenta> Notification message ({error_code}, {error_subcode})")
+        self.logger.opt(ansi=True, depth=1).info(f"<magenta>[TX-ERR]</> NOTIFICATION {error_code}, {error_subcode}")
 
 
 async def send_open_message(self):
@@ -116,16 +116,16 @@ async def send_open_message(self):
             await self.writer.drain()
 
         except OSError:
-            self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Open message")
+            self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</> OPEN")
             self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
             self.tcp_connection_established = False
             await asyncio.sleep(1)
             return
 
-        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</magenta> Open message")
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX]</> OPEN")
 
     else:
-        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</magenta> Open message")
+        self.logger.opt(ansi=True, depth=1).info("<magenta>[TX-ERR]</> OPEN")
 
 
 async def send_update_message(self):
@@ -176,15 +176,18 @@ async def message_input_loop(self):
                 break
 
             if message.type == bgp_message.OPEN:
-                self.logger.opt(ansi=True).info(f"<magenta>[RX]</magenta> Open message (peer_id: {message.id})")
+                self.logger.opt(ansi=True).info(f"<green>[RX]</> OPEN - peer_id: {message.id}")
                 self.enqueue_event(BgpEvent("Event 19: BGPOpen", message))
 
             if message.type == bgp_message.UPDATE:
-                self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Update message")
-                # <!!!> Requires proper handler here
+                self.logger.opt(ansi=True).info(f"<green>[RX]</> UPDATE - add {len(message.prefixes_add)}, del {len(message.prefixes_del)}")
+                for prefix_add in message.prefixes_add:
+                    self.logger.opt(ansi=True).info(f"<green>[RX]</> Add prefix: {prefix_add}")
+                for prefix_del in message.prefixes_del:
+                    self.logger.opt(ansi=True).info(f"<green>[RX]</> Del prefix: {prefix_del}")
 
             if message.type == bgp_message.NOTIFICATION:
-                self.logger.opt(ansi=True).info(f"<magenta>[RX]</magenta> Notification message ({message.error_code}, {message.error_subcode})")
+                self.logger.opt(ansi=True).info(f"<green>[RX]</> NOTIFICATION - {message.error_code}, {message.error_subcode}")
 
                 if message.error_code == bgp_message.MESSAGE_HEADER_ERROR:
                     self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
@@ -208,7 +211,7 @@ async def message_input_loop(self):
                     self.enqueue_event(BgpEvent("Event 25: NotifMsg"))
 
             if message.type == bgp_message.KEEPALIVE:
-                self.logger.opt(ansi=True).info("<magenta>[RX]</magenta> Keepalive message")
+                self.logger.opt(ansi=True).info("<green>[RX]</> KEEPALIVE")
                 self.enqueue_event(BgpEvent("Event 26: KeepAliveMsg"))
 
             await asyncio.sleep(1)
