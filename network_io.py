@@ -158,14 +158,14 @@ async def message_input_loop(self):
         while len(data) >= 19:
             message = bgp_message.DecodeMessage(data, local_id=self.local_id, peer_asn=self.peer_asn)
 
-            if message.data_length_error:
-                self.logger.warning(f"Received {message.data_length_received} bytes of data, expected at least {message.data_length_expected}")
+            if message.data_len_error:
+                self.logger.warning(f"Received {message.data_len_received} bytes of data, expected at least {message.data_len_expected}")
                 self.tcp_connection_established = False
                 self.enqueue_event(BgpEvent("Event 18: TcpConnectionFails"))
                 await asyncio.sleep(1)
                 break
 
-            data = data[message.length :]
+            data = data[message.len :]
 
             if message.message_error_code == bgp_message.MESSAGE_HEADER_ERROR:
                 self.enqueue_event(BgpEvent("Event 21: BGPHeaderErr", message))
@@ -181,6 +181,8 @@ async def message_input_loop(self):
 
             if message.type == bgp_message.UPDATE:
                 self.logger.opt(ansi=True).info(f"<green>[RX]</> UPDATE - add {len(message.prefixes_add)}, del {len(message.prefixes_del)}")
+                for attribute in message.attributes:
+                    self.logger.opt(ansi=True).info(f"<green>[RX]</> {attribute}")
                 for prefix_add in message.prefixes_add:
                     self.logger.opt(ansi=True).info(f"<green>[RX]</> Add prefix: {prefix_add}")
                 for prefix_del in message.prefixes_del:

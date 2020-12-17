@@ -66,13 +66,28 @@ OPTIONAL_ATTRIBUTE_ERROR = 9
 INVALID_NETWORK_FIELD = 10
 MALFORMED_AS_PATH = 11
 
+# UPDATE attribute flags
+FLAG_OPTIONAL = 0b10000000
+FLAG_TANSITIVE = 0b01000000
+FLAG_PARTIAL = 0b00100000
+FLAG_EXTLEN = 0b00010000
+
+# UPDATE attribute code
+ATTR_ORIGIN = 1
+ATTR_AS_PATH = 2
+ATTR_NEXT_HOP = 3
+ATTR_MED = 4
+ATTR_LOCAL_PREF = 5
+ATTR_ATOMIC_AGGREGATE = 6
+ATTR_AGGEGATOR = 7
+
 
 class DecodeMessage:
     def __init__(self, data, local_id="0.0.0.0", peer_asn=0):
 
-        self.data_length_error = False
-        self.data_length_expected = 19
-        self.data_length_received = len(data)
+        self.data_len_error = False
+        self.data_len_expected = 19
+        self.data_len_received = len(data)
 
         self.message_error_code = 0
         self.message_error_subcode = 0
@@ -80,7 +95,8 @@ class DecodeMessage:
 
         # Validate if there is enough data to decode header
         if len(data) < 19:
-            self.data_length_error = True
+            self.data_len_error = True
+            self.data_len_expected = 19
             return
 
         # Validate Marker field
@@ -90,14 +106,14 @@ class DecodeMessage:
                 self.message_error_subcode = CONNECTION_NOT_SYNCHRONISED
                 return
 
-        self.length = struct.unpack("!H", data[16:18])[0]
+        self.len = struct.unpack("!H", data[16:18])[0]
         self.type = data[18]
 
         # Validate Length field
-        if self.length < 19 or self.length > 4096:
+        if self.len < 19 or self.len > 4096:
             self.message_error_code = MESSAGE_HEADER_ERROR
             self.message_error_subcode = BAD_MESSAGE_LENGTH
-            self.message_error_data = struct.pack("!H", self.length)
+            self.message_error_data = struct.pack("!H", self.len)
             return
 
         # Validate Type field
@@ -108,18 +124,17 @@ class DecodeMessage:
             return
 
         # Validate if there is enough data to decode rest of message
-        if len(data) < self.length:
-            self.data_length_error = True
-            self.data_length_expected = self.length
+        if len(data) < self.len:
+            self.data_len_error = True
+            self.data_len_expected = self.len
             return
 
         if self.type == OPEN:
-
             # Validate Length field
-            if self.length < 19 + 10:
+            if self.len < 19 + 10:
                 self.message_error_code = MESSAGE_HEADER_ERROR
                 self.message_error_subcode = BAD_MESSAGE_LENGTH
-                self.message_error_data = struct.pack("!H", self.length)
+                self.message_error_data = struct.pack("!H", self.len)
                 return
 
             self.version = data[19]
@@ -127,7 +142,7 @@ class DecodeMessage:
             self.hold_time = struct.unpack("!H", data[23:25])[0]
             self.id = socket.inet_ntoa(struct.unpack("!4s", data[25:29])[0])
             self.opt_len = data[29]
-            self.opt_param = data[29 : self.length]
+            self.opt_param = data[29 : self.len]
 
             if self.version != 4:
                 self.message_error_code = OPEN_MESSAGE_ERROR
@@ -150,20 +165,33 @@ class DecodeMessage:
             return
 
         if self.type == UPDATE:
+            # Validate Length field
+            if self.len < 19 + 4:
+                self.message_error_code = MESSAGE_HEADER_ERROR
+                self.message_error_subcode = BAD_MESSAGE_LENGTH
+                self.message_error_data = struct.pack("!H", self.len)
+                return
 
             prefixes_del_len = struct.unpack("!H", data[19:21])[0]
             prefixes_del_raw = data[21 : 21 + prefixes_del_len]
             self.prefixes_del = []
             i = 0
-            while i < len(prefixes_del_raw):
+            while i < prefixes_del_len:
                 prefix = IPv4Prefix(prefixes_del_raw[i:])
                 self.prefixes_del.append(prefix)
                 i += prefix.size + 1
 
-            atribute_len = struct.unpack("!H", data[21 + prefixes_del_len : 21 + prefixes_del_len + 2])[0]
-            atributes_raw = data[21 + prefixes_del_len + 2 : 21 + prefixes_del_len + 2 + atribute_len]
+            attributes_len = struct.unpack("!H", data[21 + prefixes_del_len : 23 + prefixes_del_len])[0]
+            attributes_raw = data[23 + prefixes_del_len : 23 + prefixes_del_len + attributes_len]
+            self.attributes = []
+            i = 0
+            while i < attributes_len:
+                attribute = {ATTR_ORIGIN: PathAttrOrigin, ATTR_AS_PATH: PathAttrAsPath}.get(attributes_raw[i + 1], PathAttrUnk)(attributes_raw[i:])
+                self.attributes.append(attribute)
+                i += len(attribute)
 
-            prefixes_add_raw = data[21 + prefixes_del_len + 2 + atribute_len :]
+            prefixes_add_len = self.len - 23 - prefixes_del_len - attributes_len
+            prefixes_add_raw = data[23 + prefixes_del_len + attributes_len : 23 + prefixes_del_len + attributes_len + prefixes_add_len]
             self.prefixes_add = []
             i = 0
             while i < len(prefixes_add_raw):
@@ -176,14 +204,14 @@ class DecodeMessage:
         if self.type == NOTIFICATION:
 
             # Validate Length field
-            if self.length < 19 + 2:
+            if self.len < 19 + 2:
                 self.message_error_code = 1
                 self.message_error_subcode = 2
-                self.message_error_data = struct.pack("!H", self.length)
+                self.message_error_data = struct.pack("!H", self.len)
                 return
 
             self.error_code, self.error_subcode = struct.unpack("!BB", data[19:21])
-            self.error_data = data[21 : self.length]
+            self.error_data = data[21 : self.len]
             return
 
         if self.type == KEEPALIVE:
@@ -247,3 +275,55 @@ class IPv4Prefix:
 
     def __str__(self):
         return ".".join([str(_) for _ in self.bytes]) + f"/{self.len}"
+
+
+class PathAttrOrigin:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = raw_data[2]
+        self.origin = raw_data[3]
+
+    def __len__(self):
+        return self.len + 3
+
+    def __str__(self):
+        return f"Origin {self.origin}"
+
+
+class PathAttrAsPath:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0]
+        self.as_set = {}
+        self.as_seq = []
+
+        i = 4
+        while i < 4 + self.len:
+            seg_type = raw_data[i]
+            seg_len = raw_data[i + 1]
+            if seg_type == 1:
+                self.as_set = set(struct.unpack(f"!{seg_len}H", raw_data[i + 2 : i + 2 + seg_len * 2]))
+            if seg_type == 2:
+                self.as_seq = list(struct.unpack(f"!{seg_len}H", raw_data[i + 2 : i + 2 + seg_len * 2]))
+            i += 2 + seg_len * 2
+
+    def __len__(self):
+        return self.len + 4
+
+    def __str__(self):
+        return f"AS path {self.as_seq} {self.as_set}"
+
+
+class PathAttrUnk:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
+
+    def __len__(self):
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
+
+    def __str__(self):
+        return f"Unkown {self.flags:08b}, {self.type}, {self.len}"
