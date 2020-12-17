@@ -90,7 +90,8 @@ class DecodeMessage:
                 self.message_error_subcode = CONNECTION_NOT_SYNCHRONISED
                 return
 
-        self.length, self.type = struct.unpack("!HB", data[16:19])
+        self.length = struct.unpack("!H", data[16:18])[0]
+        self.type = data[18]
 
         # Validate Length field
         if self.length < 19 or self.length > 4096:
@@ -121,8 +122,11 @@ class DecodeMessage:
                 self.message_error_data = struct.pack("!H", self.length)
                 return
 
-            self.version, self.asn, self.hold_time, self.id, self.opt_len = struct.unpack("!BHHIB", data[19:29])
-            self.id = socket.inet_ntoa(struct.pack("!L", self.id))
+            self.version = data[19]
+            self.asn = struct.unpack("!H", data[20:22])[0]
+            self.hold_time = struct.unpack("!H", data[23:25])[0]
+            self.id = socket.inet_ntoa(struct.unpack("!4s", data[25:29])[0])
+            self.opt_len = data[29]
             self.opt_param = data[29 : self.length]
 
             if self.version != 4:
@@ -133,7 +137,6 @@ class DecodeMessage:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = BAD_PEER_AS
 
-            # <!!!> Need to check for valid unicast IP
             if self.id == local_id:
                 self.message_error_code = OPEN_MESSAGE_ERROR
                 self.message_error_subcode = BAD_BGP_IDENTIFIER
@@ -202,7 +205,7 @@ class Open:
         return (
             b"\xff" * 16
             + struct.pack("!HB", self.len, self.type)
-            + struct.pack("!BHHIB", self.version, self.asn, self.hold_time, self.bgp_id, self.opt_len)
+            + struct.pack("!BHHLB", self.version, self.asn, self.hold_time, self.bgp_id, self.opt_len)
             + self.opt
         )
 
