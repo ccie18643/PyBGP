@@ -69,7 +69,7 @@ async def main():
 
     BgpSession(
         local_id="1.1.1.1",
-        local_asn=65101,
+        local_asn=65201,
         local_hold_time=180,
         peer_ip="192.168.9.201",
         peer_asn=65201,

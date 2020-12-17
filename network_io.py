@@ -182,11 +182,11 @@ async def message_input_loop(self):
             if message.type == bgp_message.UPDATE:
                 self.logger.opt(ansi=True).info(f"<green>[RX]</> UPDATE - add {len(message.prefixes_add)}, del {len(message.prefixes_del)}")
                 for attribute in message.attributes:
-                    self.logger.opt(ansi=True).info(f"<green>[RX]</> {attribute}")
+                    self.logger.opt(ansi=True).info(f"<green>[RX]</> attr: {attribute}")
                 for prefix_add in message.prefixes_add:
-                    self.logger.opt(ansi=True).info(f"<green>[RX]</> Add prefix: {prefix_add}")
+                    self.logger.opt(ansi=True).info(f"<green>[RX]</> prefix_add: {prefix_add}")
                 for prefix_del in message.prefixes_del:
-                    self.logger.opt(ansi=True).info(f"<green>[RX]</> Del prefix: {prefix_del}")
+                    self.logger.opt(ansi=True).info(f"<green>[RX]</> prefix_del: {prefix_del}")
 
             if message.type == bgp_message.NOTIFICATION:
                 self.logger.opt(ansi=True).info(f"<green>[RX]</> NOTIFICATION - {message.error_code}, {message.error_subcode}")

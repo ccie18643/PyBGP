@@ -26,6 +26,7 @@
 
 import socket
 import struct
+from ipaddress import IPv4Address
 
 OPEN = 1
 UPDATE = 2
@@ -79,7 +80,7 @@ ATTR_NEXT_HOP = 3
 ATTR_MED = 4
 ATTR_LOCAL_PREF = 5
 ATTR_ATOMIC_AGGREGATE = 6
-ATTR_AGGEGATOR = 7
+ATTR_AGGREGATOR = 7
 
 
 class DecodeMessage:
@@ -186,7 +187,15 @@ class DecodeMessage:
             self.attributes = []
             i = 0
             while i < attributes_len:
-                attribute = {ATTR_ORIGIN: PathAttrOrigin, ATTR_AS_PATH: PathAttrAsPath}.get(attributes_raw[i + 1], PathAttrUnk)(attributes_raw[i:])
+                attribute = {
+                    ATTR_ORIGIN: AttrOrigin,
+                    ATTR_AS_PATH: AttrAsPath,
+                    ATTR_NEXT_HOP: AttrNextHop,
+                    ATTR_MED: AttrMed,
+                    ATTR_LOCAL_PREF: AttrLocalPref,
+                    ATTR_ATOMIC_AGGREGATE: AttrAtomicAggregate,
+                    ATTR_AGGREGATOR: AttrAggregator,
+                }.get(attributes_raw[i + 1], AttrUnk)(attributes_raw[i:])
                 self.attributes.append(attribute)
                 i += len(attribute)
 
@@ -277,25 +286,25 @@ class IPv4Prefix:
         return ".".join([str(_) for _ in self.bytes]) + f"/{self.len}"
 
 
-class PathAttrOrigin:
+class AttrOrigin:
     def __init__(self, raw_data):
         self.flags = raw_data[0]
         self.type = raw_data[1]
-        self.len = raw_data[2]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
         self.origin = raw_data[3]
 
     def __len__(self):
-        return self.len + 3
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
 
     def __str__(self):
-        return f"Origin {self.origin}"
+        return f"origin {self.origin}"
 
 
-class PathAttrAsPath:
+class AttrAsPath:
     def __init__(self, raw_data):
         self.flags = raw_data[0]
         self.type = raw_data[1]
-        self.len = struct.unpack("!H", raw_data[2:4])[0]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
         self.as_set = {}
         self.as_seq = []
 
@@ -310,13 +319,55 @@ class PathAttrAsPath:
             i += 2 + seg_len * 2
 
     def __len__(self):
-        return self.len + 4
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
 
     def __str__(self):
-        return f"AS path {self.as_seq} {self.as_set}"
+        return f"as_path {self.as_seq} {self.as_set}"
 
 
-class PathAttrUnk:
+class AttrNextHop:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
+        self.next_hop = IPv4Address(raw_data[3:7])
+
+    def __len__(self):
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
+
+    def __str__(self):
+        return f"next_hop {self.next_hop}"
+
+
+class AttrMed:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
+        self.med = struct.unpack("!L", raw_data[3:7])[0]
+
+    def __len__(self):
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
+
+    def __str__(self):
+        return f"med {self.med}"
+
+
+class AttrLocalPref:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
+        self.local_preference = struct.unpack("!L", raw_data[3:7])[0]
+
+    def __len__(self):
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
+
+    def __str__(self):
+        return f"local_pref {self.local_preference}"
+
+
+class AttrAtomicAggregate:
     def __init__(self, raw_data):
         self.flags = raw_data[0]
         self.type = raw_data[1]
@@ -326,4 +377,32 @@ class PathAttrUnk:
         return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
 
     def __str__(self):
-        return f"Unkown {self.flags:08b}, {self.type}, {self.len}"
+        return f"atomic_aggregate"
+
+
+class AttrAggregator:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
+        self.asn = struct.unpack("!H", raw_data[3:5])[0]
+        self.origin = IPv4Address(raw_data[5:9])
+
+    def __len__(self):
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
+
+    def __str__(self):
+        return f"aggregator {self.asn}, {self.origin}"
+
+
+class AttrUnk:
+    def __init__(self, raw_data):
+        self.flags = raw_data[0]
+        self.type = raw_data[1]
+        self.len = struct.unpack("!H", raw_data[2:4])[0] if self.flags & FLAG_EXTLEN else raw_data[2]
+
+    def __len__(self):
+        return self.len + 4 if self.flags & FLAG_EXTLEN else self.len + 3
+
+    def __str__(self):
+        return f"unknown {self.flags:08b}, {self.type}, {self.len}"
