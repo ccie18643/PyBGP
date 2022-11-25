@@ -36,12 +36,12 @@ PyBGP is Python / Asyncio-based BGP implementation. It fully supports the Finite
 
 
 
-#### Finite State Machine establishing connectivity by using active TCP connection
+#### Finite State Machine establishing connectivity by using an active TCP connection
 ![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_02.png)
 
 
 
-#### Finite State Machine establishing connectivity by using passive TCP connection
+#### Finite State Machine establishing connectivity by using a passive TCP connection
 ![Sample PyBGP log output](https://github.com/ccie18643/PyBGP/blob/master/pictures/log_03.png)
 
 
